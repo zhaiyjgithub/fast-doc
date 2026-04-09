@@ -46,12 +46,14 @@ def upgrade() -> None:
         sa.Column("chunk_index", sa.Integer, nullable=False, server_default="0"),
         sa.Column("chunk_text", sa.Text, nullable=False),
         sa.Column("content_hash", sa.String(64), nullable=False),
+        sa.Column("embedding_vector", sa.Text, nullable=True),  # placeholder, replaced below
         sa.Column("metadata_json", postgresql.JSONB, nullable=True),
         sa.Column("is_active", sa.Boolean, nullable=False, server_default="true"),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
     )
 
-    # Add pgvector embedding column
+    # Replace placeholder text column with proper vector column
+    op.drop_column("knowledge_chunks", "embedding_vector")
     op.execute(f"ALTER TABLE knowledge_chunks ADD COLUMN embedding_vector vector({EMBEDDING_DIM})")
 
     op.create_table(

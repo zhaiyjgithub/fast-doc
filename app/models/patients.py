@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, String, Text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -35,7 +35,9 @@ class PatientDemographics(Base):
     __tablename__ = "patient_demographics"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    patient_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    patient_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("patients.id"), nullable=False
+    )
     ssn_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     ssn_last4: Mapped[str | None] = mapped_column(String(4), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(32), nullable=True)

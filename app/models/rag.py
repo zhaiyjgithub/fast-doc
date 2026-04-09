@@ -1,11 +1,14 @@
 import uuid
 from datetime import date, datetime
+from typing import Any
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
+from app.core.config import settings
 from app.db.base import Base
 
 
@@ -36,7 +39,9 @@ class KnowledgeChunk(Base):
     chunk_index: Mapped[int] = mapped_column(Integer, default=0)
     chunk_text: Mapped[str] = mapped_column(Text, nullable=False)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
-    # embedding_vector stored as raw list; pgvector column handled in migration
+    embedding_vector: Mapped[list[float] | None] = mapped_column(
+        Vector(settings.EMBEDDING_DIM), nullable=True
+    )
     metadata_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
