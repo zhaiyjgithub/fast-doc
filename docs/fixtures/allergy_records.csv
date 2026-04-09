@@ -1,0 +1,3 @@
+allergy_id,patient_id,allergen,reaction,severity,status,recorded_at
+a001,p001,Penicillin,Rash,moderate,active,2018-03-15T10:00:00Z
+a002,p003,Seafood,Urticaria and angioedema,mild,active,2021-08-20T11:30:00Z

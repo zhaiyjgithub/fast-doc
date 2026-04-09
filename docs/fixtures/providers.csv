@@ -1,0 +1,3 @@
+provider_id,external_provider_id,first_name,last_name,full_name,gender,date_of_birth,credentials,specialty,sub_specialty,department,license_number,license_state,prompt_style,is_active,created_at
+d001,NPI-1234567890,Sarah,Chen,"Dr. Sarah Chen, MD",female,1978-03-15,MD,pulmonology,general,pulmonology,CA-MD-78234,CA,standard,true,2026-01-01T00:00:00Z
+d002,NPI-0987654321,James,Park,"Dr. James Park, MD",male,1972-11-08,MD,pulmonology,critical_care,pulmonology,CA-MD-55891,CA,detailed,true,2026-01-01T00:00:00Z

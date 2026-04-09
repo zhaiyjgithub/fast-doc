@@ -1,0 +1,355 @@
+code	description	chapter	catalog_version
+J00	Acute nasopharyngitis [common cold]	J	ICD-10-CM-2025
+J0100	Acute maxillary sinusitis, unspecified	J	ICD-10-CM-2025
+J0101	Acute recurrent maxillary sinusitis	J	ICD-10-CM-2025
+J0110	Acute frontal sinusitis, unspecified	J	ICD-10-CM-2025
+J0111	Acute recurrent frontal sinusitis	J	ICD-10-CM-2025
+J0120	Acute ethmoidal sinusitis, unspecified	J	ICD-10-CM-2025
+J0121	Acute recurrent ethmoidal sinusitis	J	ICD-10-CM-2025
+J0130	Acute sphenoidal sinusitis, unspecified	J	ICD-10-CM-2025
+J0131	Acute recurrent sphenoidal sinusitis	J	ICD-10-CM-2025
+J0140	Acute pansinusitis, unspecified	J	ICD-10-CM-2025
+J0141	Acute recurrent pansinusitis	J	ICD-10-CM-2025
+J0180	Other acute sinusitis	J	ICD-10-CM-2025
+J0181	Other acute recurrent sinusitis	J	ICD-10-CM-2025
+J0190	Acute sinusitis, unspecified	J	ICD-10-CM-2025
+J0191	Acute recurrent sinusitis, unspecified	J	ICD-10-CM-2025
+J020	Streptococcal pharyngitis	J	ICD-10-CM-2025
+J028	Acute pharyngitis due to other specified organisms	J	ICD-10-CM-2025
+J029	Acute pharyngitis, unspecified	J	ICD-10-CM-2025
+J0300	Acute streptococcal tonsillitis, unspecified	J	ICD-10-CM-2025
+J0301	Acute recurrent streptococcal tonsillitis	J	ICD-10-CM-2025
+J0380	Acute tonsillitis due to other specified organisms	J	ICD-10-CM-2025
+J0381	Acute recurrent tonsillitis due to other specified organisms	J	ICD-10-CM-2025
+J0390	Acute tonsillitis, unspecified	J	ICD-10-CM-2025
+J0391	Acute recurrent tonsillitis, unspecified	J	ICD-10-CM-2025
+J040	Acute laryngitis	J	ICD-10-CM-2025
+J0410	Acute tracheitis without obstruction	J	ICD-10-CM-2025
+J0411	Acute tracheitis with obstruction	J	ICD-10-CM-2025
+J042	Acute laryngotracheitis	J	ICD-10-CM-2025
+J0430	Supraglottitis, unspecified, without obstruction	J	ICD-10-CM-2025
+J0431	Supraglottitis, unspecified, with obstruction	J	ICD-10-CM-2025
+J050	Acute obstructive laryngitis [croup]	J	ICD-10-CM-2025
+J0510	Acute epiglottitis without obstruction	J	ICD-10-CM-2025
+J0511	Acute epiglottitis with obstruction	J	ICD-10-CM-2025
+J060	Acute laryngopharyngitis	J	ICD-10-CM-2025
+J069	Acute upper respiratory infection, unspecified	J	ICD-10-CM-2025
+J09X1	Influenza due to identified novel influenza A virus with pneumonia	J	ICD-10-CM-2025
+J09X2	Influenza due to identified novel influenza A virus with other respiratory manifestations	J	ICD-10-CM-2025
+J09X3	Influenza due to identified novel influenza A virus with gastrointestinal manifestations	J	ICD-10-CM-2025
+J09X9	Influenza due to identified novel influenza A virus with other manifestations	J	ICD-10-CM-2025
+J1000	Influenza due to other identified influenza virus with unspecified type of pneumonia	J	ICD-10-CM-2025
+J1001	Influenza due to other identified influenza virus with the same other identified influenza virus pneumonia	J	ICD-10-CM-2025
+J1008	Influenza due to other identified influenza virus with other specified pneumonia	J	ICD-10-CM-2025
+J101	Influenza due to other identified influenza virus with other respiratory manifestations	J	ICD-10-CM-2025
+J102	Influenza due to other identified influenza virus with gastrointestinal manifestations	J	ICD-10-CM-2025
+J1081	Influenza due to other identified influenza virus with encephalopathy	J	ICD-10-CM-2025
+J1082	Influenza due to other identified influenza virus with myocarditis	J	ICD-10-CM-2025
+J1083	Influenza due to other identified influenza virus with otitis media	J	ICD-10-CM-2025
+J1089	Influenza due to other identified influenza virus with other manifestations	J	ICD-10-CM-2025
+J1100	Influenza due to unidentified influenza virus with unspecified type of pneumonia	J	ICD-10-CM-2025
+J1108	Influenza due to unidentified influenza virus with specified pneumonia	J	ICD-10-CM-2025
+J111	Influenza due to unidentified influenza virus with other respiratory manifestations	J	ICD-10-CM-2025
+J112	Influenza due to unidentified influenza virus with gastrointestinal manifestations	J	ICD-10-CM-2025
+J1181	Influenza due to unidentified influenza virus with encephalopathy	J	ICD-10-CM-2025
+J1182	Influenza due to unidentified influenza virus with myocarditis	J	ICD-10-CM-2025
+J1183	Influenza due to unidentified influenza virus with otitis media	J	ICD-10-CM-2025
+J1189	Influenza due to unidentified influenza virus with other manifestations	J	ICD-10-CM-2025
+J120	Adenoviral pneumonia	J	ICD-10-CM-2025
+J121	Respiratory syncytial virus pneumonia	J	ICD-10-CM-2025
+J122	Parainfluenza virus pneumonia	J	ICD-10-CM-2025
+J123	Human metapneumovirus pneumonia	J	ICD-10-CM-2025
+J1281	Pneumonia due to SARS-associated coronavirus	J	ICD-10-CM-2025
+J1282	Pneumonia due to coronavirus disease 2019	J	ICD-10-CM-2025
+J1289	Other viral pneumonia	J	ICD-10-CM-2025
+J129	Viral pneumonia, unspecified	J	ICD-10-CM-2025
+J13	Pneumonia due to Streptococcus pneumoniae	J	ICD-10-CM-2025
+J14	Pneumonia due to Hemophilus influenzae	J	ICD-10-CM-2025
+J150	Pneumonia due to Klebsiella pneumoniae	J	ICD-10-CM-2025
+J151	Pneumonia due to Pseudomonas	J	ICD-10-CM-2025
+J1520	Pneumonia due to staphylococcus, unspecified	J	ICD-10-CM-2025
+J15211	Pneumonia due to Methicillin susceptible Staphylococcus aureus	J	ICD-10-CM-2025
+J15212	Pneumonia due to Methicillin resistant Staphylococcus aureus	J	ICD-10-CM-2025
+J1529	Pneumonia due to other staphylococcus	J	ICD-10-CM-2025
+J153	Pneumonia due to streptococcus, group B	J	ICD-10-CM-2025
+J154	Pneumonia due to other streptococci	J	ICD-10-CM-2025
+J155	Pneumonia due to Escherichia coli	J	ICD-10-CM-2025
+J1561	Pneumonia due to Acinetobacter baumannii	J	ICD-10-CM-2025
+J1569	Pneumonia due to other Gram-negative bacteria	J	ICD-10-CM-2025
+J157	Pneumonia due to Mycoplasma pneumoniae	J	ICD-10-CM-2025
+J158	Pneumonia due to other specified bacteria	J	ICD-10-CM-2025
+J159	Unspecified bacterial pneumonia	J	ICD-10-CM-2025
+J160	Chlamydial pneumonia	J	ICD-10-CM-2025
+J168	Pneumonia due to other specified infectious organisms	J	ICD-10-CM-2025
+J17	Pneumonia in diseases classified elsewhere	J	ICD-10-CM-2025
+J180	Bronchopneumonia, unspecified organism	J	ICD-10-CM-2025
+J181	Lobar pneumonia, unspecified organism	J	ICD-10-CM-2025
+J182	Hypostatic pneumonia, unspecified organism	J	ICD-10-CM-2025
+J188	Other pneumonia, unspecified organism	J	ICD-10-CM-2025
+J189	Pneumonia, unspecified organism	J	ICD-10-CM-2025
+J200	Acute bronchitis due to Mycoplasma pneumoniae	J	ICD-10-CM-2025
+J201	Acute bronchitis due to Hemophilus influenzae	J	ICD-10-CM-2025
+J202	Acute bronchitis due to streptococcus	J	ICD-10-CM-2025
+J203	Acute bronchitis due to coxsackievirus	J	ICD-10-CM-2025
+J204	Acute bronchitis due to parainfluenza virus	J	ICD-10-CM-2025
+J205	Acute bronchitis due to respiratory syncytial virus	J	ICD-10-CM-2025
+J206	Acute bronchitis due to rhinovirus	J	ICD-10-CM-2025
+J207	Acute bronchitis due to echovirus	J	ICD-10-CM-2025
+J208	Acute bronchitis due to other specified organisms	J	ICD-10-CM-2025
+J209	Acute bronchitis, unspecified	J	ICD-10-CM-2025
+J210	Acute bronchiolitis due to respiratory syncytial virus	J	ICD-10-CM-2025
+J211	Acute bronchiolitis due to human metapneumovirus	J	ICD-10-CM-2025
+J218	Acute bronchiolitis due to other specified organisms	J	ICD-10-CM-2025
+J219	Acute bronchiolitis, unspecified	J	ICD-10-CM-2025
+J22	Unspecified acute lower respiratory infection	J	ICD-10-CM-2025
+J300	Vasomotor rhinitis	J	ICD-10-CM-2025
+J301	Allergic rhinitis due to pollen	J	ICD-10-CM-2025
+J302	Other seasonal allergic rhinitis	J	ICD-10-CM-2025
+J305	Allergic rhinitis due to food	J	ICD-10-CM-2025
+J3081	Allergic rhinitis due to animal (cat) (dog) hair and dander	J	ICD-10-CM-2025
+J3089	Other allergic rhinitis	J	ICD-10-CM-2025
+J309	Allergic rhinitis, unspecified	J	ICD-10-CM-2025
+J310	Chronic rhinitis	J	ICD-10-CM-2025
+J311	Chronic nasopharyngitis	J	ICD-10-CM-2025
+J312	Chronic pharyngitis	J	ICD-10-CM-2025
+J320	Chronic maxillary sinusitis	J	ICD-10-CM-2025
+J321	Chronic frontal sinusitis	J	ICD-10-CM-2025
+J322	Chronic ethmoidal sinusitis	J	ICD-10-CM-2025
+J323	Chronic sphenoidal sinusitis	J	ICD-10-CM-2025
+J324	Chronic pansinusitis	J	ICD-10-CM-2025
+J328	Other chronic sinusitis	J	ICD-10-CM-2025
+J329	Chronic sinusitis, unspecified	J	ICD-10-CM-2025
+J330	Polyp of nasal cavity	J	ICD-10-CM-2025
+J331	Polypoid sinus degeneration	J	ICD-10-CM-2025
+J338	Other polyp of sinus	J	ICD-10-CM-2025
+J339	Nasal polyp, unspecified	J	ICD-10-CM-2025
+J340	Abscess, furuncle and carbuncle of nose	J	ICD-10-CM-2025
+J341	Cyst and mucocele of nose and nasal sinus	J	ICD-10-CM-2025
+J342	Deviated nasal septum	J	ICD-10-CM-2025
+J343	Hypertrophy of nasal turbinates	J	ICD-10-CM-2025
+J3481	Nasal mucositis (ulcerative)	J	ICD-10-CM-2025
+J34829	Nasal valve collapse, unspecified	J	ICD-10-CM-2025
+J3489	Other specified disorders of nose and nasal sinuses	J	ICD-10-CM-2025
+J349	Unspecified disorder of nose and nasal sinuses	J	ICD-10-CM-2025
+J3501	Chronic tonsillitis	J	ICD-10-CM-2025
+J3502	Chronic adenoiditis	J	ICD-10-CM-2025
+J3503	Chronic tonsillitis and adenoiditis	J	ICD-10-CM-2025
+J351	Hypertrophy of tonsils	J	ICD-10-CM-2025
+J352	Hypertrophy of adenoids	J	ICD-10-CM-2025
+J353	Hypertrophy of tonsils with hypertrophy of adenoids	J	ICD-10-CM-2025
+J358	Other chronic diseases of tonsils and adenoids	J	ICD-10-CM-2025
+J359	Chronic disease of tonsils and adenoids, unspecified	J	ICD-10-CM-2025
+J36	Peritonsillar abscess	J	ICD-10-CM-2025
+J370	Chronic laryngitis	J	ICD-10-CM-2025
+J371	Chronic laryngotracheitis	J	ICD-10-CM-2025
+J3800	Paralysis of vocal cords and larynx, unspecified	J	ICD-10-CM-2025
+J3801	Paralysis of vocal cords and larynx, unilateral	J	ICD-10-CM-2025
+J3802	Paralysis of vocal cords and larynx, bilateral	J	ICD-10-CM-2025
+J381	Polyp of vocal cord and larynx	J	ICD-10-CM-2025
+J382	Nodules of vocal cords	J	ICD-10-CM-2025
+J383	Other diseases of vocal cords	J	ICD-10-CM-2025
+J384	Edema of larynx	J	ICD-10-CM-2025
+J385	Laryngeal spasm	J	ICD-10-CM-2025
+J386	Stenosis of larynx	J	ICD-10-CM-2025
+J387	Other diseases of larynx	J	ICD-10-CM-2025
+J390	Retropharyngeal and parapharyngeal abscess	J	ICD-10-CM-2025
+J391	Other abscess of pharynx	J	ICD-10-CM-2025
+J392	Other diseases of pharynx	J	ICD-10-CM-2025
+J393	Upper respiratory tract hypersensitivity reaction, site unspecified	J	ICD-10-CM-2025
+J398	Other specified diseases of upper respiratory tract	J	ICD-10-CM-2025
+J399	Disease of upper respiratory tract, unspecified	J	ICD-10-CM-2025
+J40	Bronchitis, not specified as acute or chronic	J	ICD-10-CM-2025
+J410	Simple chronic bronchitis	J	ICD-10-CM-2025
+J411	Mucopurulent chronic bronchitis	J	ICD-10-CM-2025
+J418	Mixed simple and mucopurulent chronic bronchitis	J	ICD-10-CM-2025
+J42	Unspecified chronic bronchitis	J	ICD-10-CM-2025
+J430	Unilateral pulmonary emphysema [MacLeod's syndrome]	J	ICD-10-CM-2025
+J431	Panlobular emphysema	J	ICD-10-CM-2025
+J432	Centrilobular emphysema	J	ICD-10-CM-2025
+J438	Other emphysema	J	ICD-10-CM-2025
+J439	Emphysema, unspecified	J	ICD-10-CM-2025
+J440	Chronic obstructive pulmonary disease with (acute) lower respiratory infection	J	ICD-10-CM-2025
+J441	Chronic obstructive pulmonary disease with (acute) exacerbation	J	ICD-10-CM-2025
+J4481	Bronchiolitis obliterans and bronchiolitis obliterans syndrome	J	ICD-10-CM-2025
+J4489	Other specified chronic obstructive pulmonary disease	J	ICD-10-CM-2025
+J449	Chronic obstructive pulmonary disease, unspecified	J	ICD-10-CM-2025
+J4A0	Restrictive allograft syndrome	J	ICD-10-CM-2025
+J4A8	Other chronic lung allograft dysfunction	J	ICD-10-CM-2025
+J4A9	Chronic lung allograft dysfunction, unspecified	J	ICD-10-CM-2025
+J4520	Mild intermittent asthma, uncomplicated	J	ICD-10-CM-2025
+J4521	Mild intermittent asthma with (acute) exacerbation	J	ICD-10-CM-2025
+J4522	Mild intermittent asthma with status asthmaticus	J	ICD-10-CM-2025
+J4530	Mild persistent asthma, uncomplicated	J	ICD-10-CM-2025
+J4531	Mild persistent asthma with (acute) exacerbation	J	ICD-10-CM-2025
+J4532	Mild persistent asthma with status asthmaticus	J	ICD-10-CM-2025
+J4540	Moderate persistent asthma, uncomplicated	J	ICD-10-CM-2025
+J4541	Moderate persistent asthma with (acute) exacerbation	J	ICD-10-CM-2025
+J4542	Moderate persistent asthma with status asthmaticus	J	ICD-10-CM-2025
+J4550	Severe persistent asthma, uncomplicated	J	ICD-10-CM-2025
+J4551	Severe persistent asthma with (acute) exacerbation	J	ICD-10-CM-2025
+J4552	Severe persistent asthma with status asthmaticus	J	ICD-10-CM-2025
+J45901	Unspecified asthma with (acute) exacerbation	J	ICD-10-CM-2025
+J45902	Unspecified asthma with status asthmaticus	J	ICD-10-CM-2025
+J45909	Unspecified asthma, uncomplicated	J	ICD-10-CM-2025
+J45990	Exercise induced bronchospasm	J	ICD-10-CM-2025
+J45991	Cough variant asthma	J	ICD-10-CM-2025
+J45998	Other asthma	J	ICD-10-CM-2025
+J470	Bronchiectasis with acute lower respiratory infection	J	ICD-10-CM-2025
+J471	Bronchiectasis with (acute) exacerbation	J	ICD-10-CM-2025
+J479	Bronchiectasis, uncomplicated	J	ICD-10-CM-2025
+J60	Coalworker's pneumoconiosis	J	ICD-10-CM-2025
+J61	Pneumoconiosis due to asbestos and other mineral fibers	J	ICD-10-CM-2025
+J620	Pneumoconiosis due to talc dust	J	ICD-10-CM-2025
+J628	Pneumoconiosis due to other dust containing silica	J	ICD-10-CM-2025
+J630	Aluminosis (of lung)	J	ICD-10-CM-2025
+J631	Bauxite fibrosis (of lung)	J	ICD-10-CM-2025
+J632	Berylliosis	J	ICD-10-CM-2025
+J633	Graphite fibrosis (of lung)	J	ICD-10-CM-2025
+J634	Siderosis	J	ICD-10-CM-2025
+J635	Stannosis	J	ICD-10-CM-2025
+J636	Pneumoconiosis due to other specified inorganic dusts	J	ICD-10-CM-2025
+J64	Unspecified pneumoconiosis	J	ICD-10-CM-2025
+J65	Pneumoconiosis associated with tuberculosis	J	ICD-10-CM-2025
+J660	Byssinosis	J	ICD-10-CM-2025
+J661	Flax-dressers' disease	J	ICD-10-CM-2025
+J662	Cannabinosis	J	ICD-10-CM-2025
+J668	Airway disease due to other specific organic dusts	J	ICD-10-CM-2025
+J670	Farmer's lung	J	ICD-10-CM-2025
+J671	Bagassosis	J	ICD-10-CM-2025
+J672	Bird fancier's lung	J	ICD-10-CM-2025
+J673	Suberosis	J	ICD-10-CM-2025
+J674	Maltworker's lung	J	ICD-10-CM-2025
+J675	Mushroom-worker's lung	J	ICD-10-CM-2025
+J676	Maple-bark-stripper's lung	J	ICD-10-CM-2025
+J677	Air conditioner and humidifier lung	J	ICD-10-CM-2025
+J678	Hypersensitivity pneumonitis due to other organic dusts	J	ICD-10-CM-2025
+J679	Hypersensitivity pneumonitis due to unspecified organic dust	J	ICD-10-CM-2025
+J680	Bronchitis and pneumonitis due to chemicals, gases, fumes and vapors	J	ICD-10-CM-2025
+J681	Pulmonary edema due to chemicals, gases, fumes and vapors	J	ICD-10-CM-2025
+J682	Upper respiratory inflammation due to chemicals, gases, fumes and vapors, not elsewhere classified	J	ICD-10-CM-2025
+J683	Other acute and subacute respiratory conditions due to chemicals, gases, fumes and vapors	J	ICD-10-CM-2025
+J684	Chronic respiratory conditions due to chemicals, gases, fumes and vapors	J	ICD-10-CM-2025
+J688	Other respiratory conditions due to chemicals, gases, fumes and vapors	J	ICD-10-CM-2025
+J689	Unspecified respiratory condition due to chemicals, gases, fumes and vapors	J	ICD-10-CM-2025
+J690	Pneumonitis due to inhalation of food and vomit	J	ICD-10-CM-2025
+J691	Pneumonitis due to inhalation of oils and essences	J	ICD-10-CM-2025
+J698	Pneumonitis due to inhalation of other solids and liquids	J	ICD-10-CM-2025
+J700	Acute pulmonary manifestations due to radiation	J	ICD-10-CM-2025
+J701	Chronic and other pulmonary manifestations due to radiation	J	ICD-10-CM-2025
+J702	Acute drug-induced interstitial lung disorders	J	ICD-10-CM-2025
+J703	Chronic drug-induced interstitial lung disorders	J	ICD-10-CM-2025
+J704	Drug-induced interstitial lung disorders, unspecified	J	ICD-10-CM-2025
+J705	Respiratory conditions due to smoke inhalation	J	ICD-10-CM-2025
+J708	Respiratory conditions due to other specified external agents	J	ICD-10-CM-2025
+J709	Respiratory conditions due to unspecified external agent	J	ICD-10-CM-2025
+J80	Acute respiratory distress syndrome	J	ICD-10-CM-2025
+J810	Acute pulmonary edema	J	ICD-10-CM-2025
+J811	Chronic pulmonary edema	J	ICD-10-CM-2025
+J8281	Chronic eosinophilic pneumonia	J	ICD-10-CM-2025
+J8282	Acute eosinophilic pneumonia	J	ICD-10-CM-2025
+J8283	Eosinophilic asthma	J	ICD-10-CM-2025
+J8289	Other pulmonary eosinophilia, not elsewhere classified	J	ICD-10-CM-2025
+J8401	Alveolar proteinosis	J	ICD-10-CM-2025
+J8402	Pulmonary alveolar microlithiasis	J	ICD-10-CM-2025
+J8403	Idiopathic pulmonary hemosiderosis	J	ICD-10-CM-2025
+J8409	Other alveolar and parieto-alveolar conditions	J	ICD-10-CM-2025
+J8410	Pulmonary fibrosis, unspecified	J	ICD-10-CM-2025
+J84111	Idiopathic interstitial pneumonia, not otherwise specified	J	ICD-10-CM-2025
+J84112	Idiopathic pulmonary fibrosis	J	ICD-10-CM-2025
+J84113	Idiopathic non-specific interstitial pneumonitis	J	ICD-10-CM-2025
+J84114	Acute interstitial pneumonitis	J	ICD-10-CM-2025
+J84115	Respiratory bronchiolitis interstitial lung disease	J	ICD-10-CM-2025
+J84116	Cryptogenic organizing pneumonia	J	ICD-10-CM-2025
+J84117	Desquamative interstitial pneumonia	J	ICD-10-CM-2025
+J84170	Interstitial lung disease with progressive fibrotic phenotype in diseases classified elsewhere	J	ICD-10-CM-2025
+J84178	Other interstitial pulmonary diseases with fibrosis in diseases classified elsewhere	J	ICD-10-CM-2025
+J842	Lymphoid interstitial pneumonia	J	ICD-10-CM-2025
+J8481	Lymphangioleiomyomatosis	J	ICD-10-CM-2025
+J8482	Adult pulmonary Langerhans cell histiocytosis	J	ICD-10-CM-2025
+J8483	Surfactant mutations of the lung	J	ICD-10-CM-2025
+J84841	Neuroendocrine cell hyperplasia of infancy	J	ICD-10-CM-2025
+J84842	Pulmonary interstitial glycogenosis	J	ICD-10-CM-2025
+J84843	Alveolar capillary dysplasia with vein misalignment	J	ICD-10-CM-2025
+J84848	Other interstitial lung diseases of childhood	J	ICD-10-CM-2025
+J8489	Other specified interstitial pulmonary diseases	J	ICD-10-CM-2025
+J849	Interstitial pulmonary disease, unspecified	J	ICD-10-CM-2025
+J850	Gangrene and necrosis of lung	J	ICD-10-CM-2025
+J851	Abscess of lung with pneumonia	J	ICD-10-CM-2025
+J852	Abscess of lung without pneumonia	J	ICD-10-CM-2025
+J853	Abscess of mediastinum	J	ICD-10-CM-2025
+J860	Pyothorax with fistula	J	ICD-10-CM-2025
+J869	Pyothorax without fistula	J	ICD-10-CM-2025
+J90	Pleural effusion, not elsewhere classified	J	ICD-10-CM-2025
+J910	Malignant pleural effusion	J	ICD-10-CM-2025
+J918	Pleural effusion in other conditions classified elsewhere	J	ICD-10-CM-2025
+J920	Pleural plaque with presence of asbestos	J	ICD-10-CM-2025
+J929	Pleural plaque without asbestos	J	ICD-10-CM-2025
+J930	Spontaneous tension pneumothorax	J	ICD-10-CM-2025
+J9311	Primary spontaneous pneumothorax	J	ICD-10-CM-2025
+J9312	Secondary spontaneous pneumothorax	J	ICD-10-CM-2025
+J9381	Chronic pneumothorax	J	ICD-10-CM-2025
+J9382	Other air leak	J	ICD-10-CM-2025
+J9383	Other pneumothorax	J	ICD-10-CM-2025
+J939	Pneumothorax, unspecified	J	ICD-10-CM-2025
+J940	Chylous effusion	J	ICD-10-CM-2025
+J941	Fibrothorax	J	ICD-10-CM-2025
+J942	Hemothorax	J	ICD-10-CM-2025
+J948	Other specified pleural conditions	J	ICD-10-CM-2025
+J949	Pleural condition, unspecified	J	ICD-10-CM-2025
+J9500	Unspecified tracheostomy complication	J	ICD-10-CM-2025
+J9501	Hemorrhage from tracheostomy stoma	J	ICD-10-CM-2025
+J9502	Infection of tracheostomy stoma	J	ICD-10-CM-2025
+J9503	Malfunction of tracheostomy stoma	J	ICD-10-CM-2025
+J9504	Tracheo-esophageal fistula following tracheostomy	J	ICD-10-CM-2025
+J9509	Other tracheostomy complication	J	ICD-10-CM-2025
+J951	Acute pulmonary insufficiency following thoracic surgery	J	ICD-10-CM-2025
+J952	Acute pulmonary insufficiency following nonthoracic surgery	J	ICD-10-CM-2025
+J953	Chronic pulmonary insufficiency following surgery	J	ICD-10-CM-2025
+J954	Chemical pneumonitis due to anesthesia	J	ICD-10-CM-2025
+J955	Postprocedural subglottic stenosis	J	ICD-10-CM-2025
+J9561	Intraoperative hemorrhage and hematoma of a respiratory system organ or structure complicating a respiratory system procedure	J	ICD-10-CM-2025
+J9562	Intraoperative hemorrhage and hematoma of a respiratory system organ or structure complicating other procedure	J	ICD-10-CM-2025
+J9571	Accidental puncture and laceration of a respiratory system organ or structure during a respiratory system procedure	J	ICD-10-CM-2025
+J9572	Accidental puncture and laceration of a respiratory system organ or structure during other procedure	J	ICD-10-CM-2025
+J95811	Postprocedural pneumothorax	J	ICD-10-CM-2025
+J95812	Postprocedural air leak	J	ICD-10-CM-2025
+J95821	Acute postprocedural respiratory failure	J	ICD-10-CM-2025
+J95822	Acute and chronic postprocedural respiratory failure	J	ICD-10-CM-2025
+J95830	Postprocedural hemorrhage of a respiratory system organ or structure following a respiratory system procedure	J	ICD-10-CM-2025
+J95831	Postprocedural hemorrhage of a respiratory system organ or structure following other procedure	J	ICD-10-CM-2025
+J9584	Transfusion-related acute lung injury (TRALI)	J	ICD-10-CM-2025
+J95850	Mechanical complication of respirator	J	ICD-10-CM-2025
+J95851	Ventilator associated pneumonia	J	ICD-10-CM-2025
+J95859	Other complication of respirator [ventilator]	J	ICD-10-CM-2025
+J95860	Postprocedural hematoma of a respiratory system organ or structure following a respiratory system procedure	J	ICD-10-CM-2025
+J95861	Postprocedural hematoma of a respiratory system organ or structure following other procedure	J	ICD-10-CM-2025
+J95862	Postprocedural seroma of a respiratory system organ or structure following a respiratory system procedure	J	ICD-10-CM-2025
+J95863	Postprocedural seroma of a respiratory system organ or structure following other procedure	J	ICD-10-CM-2025
+J9587	Transfusion-associated dyspnea (TAD)	J	ICD-10-CM-2025
+J9588	Other intraoperative complications of respiratory system, not elsewhere classified	J	ICD-10-CM-2025
+J9589	Other postprocedural complications and disorders of respiratory system, not elsewhere classified	J	ICD-10-CM-2025
+J9600	Acute respiratory failure, unspecified whether with hypoxia or hypercapnia	J	ICD-10-CM-2025
+J9601	Acute respiratory failure with hypoxia	J	ICD-10-CM-2025
+J9602	Acute respiratory failure with hypercapnia	J	ICD-10-CM-2025
+J9610	Chronic respiratory failure, unspecified whether with hypoxia or hypercapnia	J	ICD-10-CM-2025
+J9611	Chronic respiratory failure with hypoxia	J	ICD-10-CM-2025
+J9612	Chronic respiratory failure with hypercapnia	J	ICD-10-CM-2025
+J9620	Acute and chronic respiratory failure, unspecified whether with hypoxia or hypercapnia	J	ICD-10-CM-2025
+J9621	Acute and chronic respiratory failure with hypoxia	J	ICD-10-CM-2025
+J9622	Acute and chronic respiratory failure with hypercapnia	J	ICD-10-CM-2025
+J9690	Respiratory failure, unspecified, unspecified whether with hypoxia or hypercapnia	J	ICD-10-CM-2025
+J9691	Respiratory failure, unspecified with hypoxia	J	ICD-10-CM-2025
+J9692	Respiratory failure, unspecified with hypercapnia	J	ICD-10-CM-2025
+J9801	Acute bronchospasm	J	ICD-10-CM-2025
+J9809	Other diseases of bronchus, not elsewhere classified	J	ICD-10-CM-2025
+J9811	Atelectasis	J	ICD-10-CM-2025
+J9819	Other pulmonary collapse	J	ICD-10-CM-2025
+J982	Interstitial emphysema	J	ICD-10-CM-2025
+J983	Compensatory emphysema	J	ICD-10-CM-2025
+J984	Other disorders of lung	J	ICD-10-CM-2025
+J9851	Mediastinitis	J	ICD-10-CM-2025
+J9859	Other diseases of mediastinum, not elsewhere classified	J	ICD-10-CM-2025
+J986	Disorders of diaphragm	J	ICD-10-CM-2025
+J988	Other specified respiratory disorders	J	ICD-10-CM-2025
+J989	Respiratory disorder, unspecified	J	ICD-10-CM-2025
+J99	Respiratory disorders in diseases classified elsewhere	J	ICD-10-CM-2025

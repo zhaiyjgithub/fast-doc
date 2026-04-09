@@ -1,0 +1,6 @@
+lab_report_id,patient_id,encounter_id,report_time,report_source,report_text_raw,file_uri
+lr001,p001,e001,2026-01-05T08:50:00Z,pulmonary_function_lab,"Spirometry: FEV1 72% predicted, FEV1/FVC ratio 0.74. SpO2 97% on room air. Mild airflow limitation consistent with mild-moderate asthma.",oss://lab/lr001.pdf
+lr002,p001,e004,2026-03-28T08:30:00Z,pulmonary_function_lab,"Repeat spirometry: FEV1 decreased to 65% predicted, FEV1/FVC 0.70. SpO2 95% on room air. Worsening vs January. Post-bronchodilator FEV1 improved to 78% confirming reversibility.",oss://lab/lr002.pdf
+lr003,p002,e002,2026-02-10T09:00:00Z,pulmonary_function_lab,"Spirometry: FEV1 48% predicted (GOLD Stage III range), FEV1/FVC 0.58 post-bronchodilator. Severe fixed airflow obstruction. SpO2 93% at rest on room air.",oss://lab/lr003.pdf
+lr004,p002,e005,2026-04-02T10:45:00Z,emergency_lab,Acute exacerbation labs: SpO2 91% on room air (critical). WBC 11.2 mild leukocytosis. CRP 28 mg/L elevated. Sputum culture pending. No ABG performed.,oss://lab/lr004.pdf
+lr005,p003,e003,2026-04-03T13:40:00Z,hospital_lab,CBC: WBC 14.2 leukocytosis. CRP 85 mg/L markedly elevated. Procalcitonin 0.8 ng/mL moderately elevated. SpO2 93% on room air. CXR: right lower lobe consolidation.,oss://lab/lr005.pdf

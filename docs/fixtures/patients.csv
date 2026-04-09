@@ -1,0 +1,4 @@
+patient_id,external_patient_id,name_masked,sex_at_birth,date_of_birth,primary_language,allergy_summary_json,active_problem_summary_json,consent_flags_json,created_at,updated_at
+p001,EXT-001,A*** J***,F,1989-06-12,en-US,"[{""allergen"":""Penicillin"",""reaction"":""Rash"",""severity"":""moderate""}]","[{""problem"":""Moderate persistent asthma"",""icd"":""J45.40""}]","{""ai_assist"":true,""research_opt_in"":false}",2026-01-05T00:00:00Z,2026-03-28T00:00:00Z
+p002,EXT-002,B*** W***,M,1978-03-21,en-US,[],"[{""problem"":""COPD with acute exacerbation"",""icd"":""J44.1""}]","{""ai_assist"":true,""research_opt_in"":true}",2026-02-10T00:00:00Z,2026-04-02T00:00:00Z
+p003,EXT-003,C*** D***,F,1972-11-08,en-US,"[{""allergen"":""Seafood"",""reaction"":""Urticaria"",""severity"":""mild""}]","[{""problem"":""Community-acquired pneumonia"",""icd"":""J18.9""}]","{""ai_assist"":true,""research_opt_in"":false}",2026-04-03T00:00:00Z,2026-04-03T00:00:00Z

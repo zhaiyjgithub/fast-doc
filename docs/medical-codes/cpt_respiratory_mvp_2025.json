@@ -1,0 +1,336 @@
+{
+  "catalog_version": "CPT-MVP-2025",
+  "license_note": "For internal development use only. Full CPT requires AMA license. Descriptions derived from publicly available CMS fee schedule documentation.",
+  "umls_note": "For production: obtain full CPT via NLM UMLS license (free, https://uts.nlm.nih.gov) or AMA commercial license.",
+  "total_codes": 53,
+  "categories": [
+    "E&M Office Visit",
+    "Pulmonary Diagnostics",
+    "Imaging",
+    "Critical Care",
+    "Bronchoscopy",
+    "Ventilation/Oxygen",
+    "Inhalation Treatment",
+    "Pulmonary Rehab/Management"
+  ],
+  "codes": [
+    {
+      "code": "94010",
+      "description": "Spirometry, including graphic record, total and timed vital capacity, expiratory flow rate measurement(s), with or without maximal voluntary ventilation",
+      "category": "Pulmonary Diagnostics",
+      "typical_modifier": null
+    },
+    {
+      "code": "94011",
+      "description": "Measurement of spirometric forced expiratory flows in an infant or child through 2 years of age",
+      "category": "Pulmonary Diagnostics",
+      "typical_modifier": null
+    },
+    {
+      "code": "94012",
+      "description": "Measurement of spirometric forced expiratory flows, before and after bronchodilator (aerosol or parenteral), in an infant or child through 2 years of age",
+      "category": "Pulmonary Diagnostics",
+      "typical_modifier": null
+    },
+    {
+      "code": "94060",
+      "description": "Bronchodilation responsiveness, spirometry as in 94010, pre- and post-bronchodilator administration",
+      "category": "Pulmonary Diagnostics",
+      "typical_modifier": null
+    },
+    {
+      "code": "94070",
+      "description": "Prolonged postexposure evaluation of bronchospasm with multiple spirometric determinations after antigen, cold air, methacholine or other bronchial challenge",
+      "category": "Pulmonary Diagnostics",
+      "typical_modifier": null
+    },
+    {
+      "code": "94150",
+      "description": "Vital capacity, total (separate procedure)",
+      "category": "Pulmonary Diagnostics",
+      "typical_modifier": null
+    },
+    {
+      "code": "94200",
+      "description": "Maximum breathing capacity, maximal voluntary ventilation",
+      "category": "Pulmonary Diagnostics",
+      "typical_modifier": null
+    },
+    {
+      "code": "94375",
+      "description": "Respiratory flow volume loop",
+      "category": "Pulmonary Diagnostics",
+      "typical_modifier": null
+    },
+    {
+      "code": "94452",
+      "description": "High altitude simulation test (HAST), with interpretation and report; with supplemental oxygen titration",
+      "category": "Pulmonary Diagnostics",
+      "typical_modifier": null
+    },
+    {
+      "code": "94726",
+      "description": "Plethysmography for determination of lung volumes and, when performed, airway resistance",
+      "category": "Pulmonary Diagnostics",
+      "typical_modifier": null
+    },
+    {
+      "code": "94727",
+      "description": "Gas dilution or washout for determination of lung volumes and, when performed, distribution of ventilation and closing volumes",
+      "category": "Pulmonary Diagnostics",
+      "typical_modifier": null
+    },
+    {
+      "code": "94728",
+      "description": "Airway resistance by impulse oscillometry",
+      "category": "Pulmonary Diagnostics",
+      "typical_modifier": null
+    },
+    {
+      "code": "94729",
+      "description": "Diffusing capacity (e.g., carbon monoxide, membrane) (List separately in addition to code for primary procedure)",
+      "category": "Pulmonary Diagnostics",
+      "typical_modifier": "51"
+    },
+    {
+      "code": "94750",
+      "description": "Pulmonary compliance study (e.g., plethysmography, volume and pressure measurements)",
+      "category": "Pulmonary Diagnostics",
+      "typical_modifier": null
+    },
+    {
+      "code": "94760",
+      "description": "Noninvasive ear or pulse oximetry for oxygen saturation; single determination",
+      "category": "Pulmonary Diagnostics",
+      "typical_modifier": null
+    },
+    {
+      "code": "94761",
+      "description": "Noninvasive ear or pulse oximetry for oxygen saturation; multiple determinations (e.g., during exercise)",
+      "category": "Pulmonary Diagnostics",
+      "typical_modifier": null
+    },
+    {
+      "code": "94762",
+      "description": "Noninvasive ear or pulse oximetry for oxygen saturation; by continuous overnight monitoring (separate procedure)",
+      "category": "Pulmonary Diagnostics",
+      "typical_modifier": null
+    },
+    {
+      "code": "94770",
+      "description": "Carbon dioxide, expired gas determination by infrared analyzer",
+      "category": "Pulmonary Diagnostics",
+      "typical_modifier": null
+    },
+    {
+      "code": "94640",
+      "description": "Pressurized or nonpressurized inhalation treatment for acute airway obstruction for therapeutic purposes and/or for diagnostic purposes such as sputum induction with an aerosol generator, nebulizer, metered dose inhaler or intermittent positive pressure breathing (IPPB) device",
+      "category": "Inhalation Treatment",
+      "typical_modifier": null
+    },
+    {
+      "code": "94642",
+      "description": "Aerosol inhalation of pentamidine for pneumocystis carinii pneumonia treatment or prophylaxis",
+      "category": "Inhalation Treatment",
+      "typical_modifier": null
+    },
+    {
+      "code": "94644",
+      "description": "Continuous inhalation treatment with aerosol medication for acute airway obstruction; first hour",
+      "category": "Inhalation Treatment",
+      "typical_modifier": null
+    },
+    {
+      "code": "94645",
+      "description": "Continuous inhalation treatment with aerosol medication for acute airway obstruction; each additional hour (List separately in addition to code for primary procedure)",
+      "category": "Inhalation Treatment",
+      "typical_modifier": "76"
+    },
+    {
+      "code": "94664",
+      "description": "Demonstration and/or evaluation of patient utilization of an aerosol generator, nebulizer, metered dose inhaler or IPPB device",
+      "category": "Inhalation Treatment",
+      "typical_modifier": null
+    },
+    {
+      "code": "94667",
+      "description": "Manipulation chest wall, such as cupping, percussing, and vibration to facilitate lung function; initial demonstration and/or evaluation",
+      "category": "Inhalation Treatment",
+      "typical_modifier": null
+    },
+    {
+      "code": "94668",
+      "description": "Manipulation chest wall, such as cupping, percussing, and vibration to facilitate lung function; subsequent",
+      "category": "Inhalation Treatment",
+      "typical_modifier": null
+    },
+    {
+      "code": "94660",
+      "description": "Continuous positive airway pressure ventilation (CPAP), initiation and management",
+      "category": "Ventilation/Oxygen",
+      "typical_modifier": null
+    },
+    {
+      "code": "94680",
+      "description": "Oxygen uptake, expired gas analysis; rest and exercise, direct, simple",
+      "category": "Ventilation/Oxygen",
+      "typical_modifier": null
+    },
+    {
+      "code": "94681",
+      "description": "Oxygen uptake, expired gas analysis; including CO2 output, percentage oxygen extracted",
+      "category": "Ventilation/Oxygen",
+      "typical_modifier": null
+    },
+    {
+      "code": "94690",
+      "description": "Oxygen uptake, expired gas analysis; rest, indirect (separate procedure)",
+      "category": "Ventilation/Oxygen",
+      "typical_modifier": null
+    },
+    {
+      "code": "94005",
+      "description": "Home ventilator management care plan oversight of a patient in home, domiciliary or rest home (e.g., assisted living) requiring review of multiple parameters with review of snapshot data reports obtained in multiple visits",
+      "category": "Pulmonary Rehab/Management",
+      "typical_modifier": null
+    },
+    {
+      "code": "94002",
+      "description": "Ventilation assist and management, initiation of pressure or volume preset ventilators for assisted or controlled breathing; hospital inpatient/observation, initial day",
+      "category": "Pulmonary Rehab/Management",
+      "typical_modifier": null
+    },
+    {
+      "code": "94003",
+      "description": "Ventilation assist and management, initiation of pressure or volume preset ventilators for assisted or controlled breathing; hospital inpatient/observation, each subsequent day",
+      "category": "Pulmonary Rehab/Management",
+      "typical_modifier": null
+    },
+    {
+      "code": "99202",
+      "description": "Office or other outpatient visit for a new patient, which requires a medically appropriate history and/or examination and straightforward medical decision making; 15-29 minutes total time",
+      "category": "E&M Office Visit",
+      "typical_modifier": null
+    },
+    {
+      "code": "99203",
+      "description": "Office or other outpatient visit for a new patient, which requires a medically appropriate history and/or examination and low level of medical decision making; 30-44 minutes total time",
+      "category": "E&M Office Visit",
+      "typical_modifier": null
+    },
+    {
+      "code": "99204",
+      "description": "Office or other outpatient visit for a new patient, which requires a medically appropriate history and/or examination and moderate level of medical decision making; 45-59 minutes total time",
+      "category": "E&M Office Visit",
+      "typical_modifier": null
+    },
+    {
+      "code": "99205",
+      "description": "Office or other outpatient visit for a new patient, which requires a medically appropriate history and/or examination and high level of medical decision making; 60-74 minutes total time",
+      "category": "E&M Office Visit",
+      "typical_modifier": null
+    },
+    {
+      "code": "99211",
+      "description": "Office or other outpatient visit for an established patient, which may not require the presence of a physician or other qualified health care professional",
+      "category": "E&M Office Visit",
+      "typical_modifier": null
+    },
+    {
+      "code": "99212",
+      "description": "Office or other outpatient visit for an established patient, which requires a medically appropriate history and/or examination and straightforward medical decision making; 10-19 minutes total time",
+      "category": "E&M Office Visit",
+      "typical_modifier": null
+    },
+    {
+      "code": "99213",
+      "description": "Office or other outpatient visit for an established patient, which requires a medically appropriate history and/or examination and low level of medical decision making; 20-29 minutes total time",
+      "category": "E&M Office Visit",
+      "typical_modifier": null
+    },
+    {
+      "code": "99214",
+      "description": "Office or other outpatient visit for an established patient, which requires a medically appropriate history and/or examination and moderate level of medical decision making; 30-39 minutes total time",
+      "category": "E&M Office Visit",
+      "typical_modifier": null
+    },
+    {
+      "code": "99215",
+      "description": "Office or other outpatient visit for an established patient, which requires a medically appropriate history and/or examination and high level of medical decision making; 40-54 minutes total time",
+      "category": "E&M Office Visit",
+      "typical_modifier": null
+    },
+    {
+      "code": "71046",
+      "description": "Radiologic examination, chest; 2 views",
+      "category": "Imaging",
+      "typical_modifier": null
+    },
+    {
+      "code": "71047",
+      "description": "Radiologic examination, chest; 3 views",
+      "category": "Imaging",
+      "typical_modifier": null
+    },
+    {
+      "code": "71048",
+      "description": "Radiologic examination, chest; 4 or more views",
+      "category": "Imaging",
+      "typical_modifier": null
+    },
+    {
+      "code": "71250",
+      "description": "Computed tomography, thorax; without contrast material",
+      "category": "Imaging",
+      "typical_modifier": null
+    },
+    {
+      "code": "71260",
+      "description": "Computed tomography, thorax; with contrast material(s)",
+      "category": "Imaging",
+      "typical_modifier": null
+    },
+    {
+      "code": "71270",
+      "description": "Computed tomography, thorax; without contrast material, followed by contrast material(s) and further sections",
+      "category": "Imaging",
+      "typical_modifier": null
+    },
+    {
+      "code": "99291",
+      "description": "Critical care, evaluation and management of the critically ill or critically injured patient; first 30-74 minutes",
+      "category": "Critical Care",
+      "typical_modifier": null
+    },
+    {
+      "code": "99292",
+      "description": "Critical care, evaluation and management of the critically ill or critically injured patient; each additional 30 minutes (List separately in addition to code for primary procedure)",
+      "category": "Critical Care",
+      "typical_modifier": "76"
+    },
+    {
+      "code": "31622",
+      "description": "Bronchoscopy, rigid or flexible, including fluoroscopic guidance, when performed; diagnostic, with or without cell washing (separate procedure)",
+      "category": "Bronchoscopy",
+      "typical_modifier": null
+    },
+    {
+      "code": "31623",
+      "description": "Bronchoscopy, rigid or flexible, including fluoroscopic guidance, when performed; with brushing or protected brushings",
+      "category": "Bronchoscopy",
+      "typical_modifier": null
+    },
+    {
+      "code": "31624",
+      "description": "Bronchoscopy, rigid or flexible, including fluoroscopic guidance, when performed; with bronchial alveolar lavage",
+      "category": "Bronchoscopy",
+      "typical_modifier": null
+    },
+    {
+      "code": "31625",
+      "description": "Bronchoscopy, rigid or flexible, including fluoroscopic guidance, when performed; with bronchial or endobronchial biopsy(s), single or multiple sites",
+      "category": "Bronchoscopy",
+      "typical_modifier": null
+    }
+  ]
+}

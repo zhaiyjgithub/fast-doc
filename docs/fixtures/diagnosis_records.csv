@@ -1,0 +1,6 @@
+diagnosis_id,encounter_id,diagnosis_text,is_primary,clinical_status,onset_date
+dgn001,e001,Moderate persistent asthma uncomplicated (J45.40),true,active,2026-01-05
+dgn002,e002,Chronic obstructive pulmonary disease Stage III stable (J44.1),true,active,2021-01-01
+dgn003,e003,Community-acquired pneumonia unspecified organism right lower lobe (J18.9),true,active,2026-04-03
+dgn004,e004,Moderate persistent asthma uncomplicated poorly controlled (J45.40),true,active,2026-01-05
+dgn005,e005,Chronic obstructive pulmonary disease with acute exacerbation (J44.1),true,active,2026-04-02

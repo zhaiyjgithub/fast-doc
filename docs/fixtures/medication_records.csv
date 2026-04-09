@@ -1,0 +1,9 @@
+medication_id,patient_id,encounter_id,medication_name,dose,route,frequency,start_date,end_date,indication,is_active
+m001,p001,e001,Budesonide/Formoterol (Symbicort),160/4.5 mcg,inhaled,bid,2026-01-05,,Moderate persistent asthma - ICS/LABA controller,true
+m002,p001,e001,Salbutamol (Albuterol),100 mcg,inhaled,PRN up to q4h,2026-01-05,,Asthma - short-acting beta2-agonist rescue,true
+m003,p002,e002,Tiotropium (Spiriva),18 mcg,inhaled,qd,2026-02-10,,COPD - long-acting muscarinic antagonist maintenance,true
+m004,p002,e002,Salbutamol (Albuterol),100 mcg,inhaled,PRN up to q4h,2026-02-10,,COPD - rescue bronchodilator,true
+m005,p002,e005,Prednisone,40 mg,oral,qd,2026-04-02,2026-04-07,COPD acute exacerbation - systemic corticosteroid 5-day course,true
+m006,p002,e005,Azithromycin,500 mg,oral,qd,2026-04-02,2026-04-07,COPD exacerbation with purulent sputum - antibiotic coverage,true
+m007,p003,e003,Amoxicillin-Clavulanate (Augmentin),875/125 mg,oral,bid,2026-04-03,2026-04-10,Community-acquired pneumonia - first-line antibiotic,true
+m008,p003,e003,Acetaminophen,500 mg,oral,q6h PRN,2026-04-03,,Fever and pleuritic chest pain - antipyretic/analgesic,true

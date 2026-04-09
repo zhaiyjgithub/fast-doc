@@ -1,0 +1,16 @@
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: emr_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: emr
+      POSTGRES_PASSWORD: emr123
+      POSTGRES_DB: emr_dev
+    ports:
+      - "5433:5432"
+    volumes:
+      - emr_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  emr_postgres_data:
