@@ -102,8 +102,11 @@ class CodingService:
                 code=s["code"],
                 rank=rank,
                 confidence=s["confidence"],
+                description=s.get("description"),
+                condition=s.get("condition"),
                 rationale=s["rationale"],
-                status="needs_review",
+                status=s.get("status", "needs_review"),
+                page=s.get("page"),
             )
             self.db.add(suggestion)
             await self.db.flush()
@@ -216,13 +219,19 @@ class CodingService:
             f"You are a medical coding specialist. Given a clinical SOAP note and a list of "
             f"{code_type} code candidates, select the most appropriate codes. "
             "Always respond in English. "
-            "Return JSON array of objects with keys: code, confidence (0-1), rationale."
+            "Return a JSON array of objects with exactly these keys:\n"
+            "  code        — the selected code (string)\n"
+            "  condition   — the clinical finding or reason that triggered this code (short phrase, e.g. 'HTN', 'knee replacement')\n"
+            "  confidence  — float 0-1\n"
+            "  status      — 'present' if explicitly documented, 'suspected' if inferred from medications or context\n"
+            "  rationale   — concise English explanation citing clinical evidence\n"
+            "  page        — integer page number in the source transcript where the evidence appears (1-based; null if unknown)"
         )
         user = (
             f"## SOAP Assessment\n{soap_note.get('assessment', '')}\n\n"
             f"## SOAP Plan\n{soap_note.get('plan', '')}\n\n"
             f"## Candidate {code_type} codes\n{candidate_text}\n\n"
-            f"Select top {top_k} most appropriate codes. Return only JSON array."
+            f"Select top {top_k} most appropriate codes. Return only the JSON array, no markdown fences."
         )
 
         raw = await llm_adapter.chat(
@@ -236,7 +245,13 @@ class CodingService:
         )
 
         suggestions = self._parse_code_suggestions(raw)
-        return self._apply_rule_engine(suggestions, code_type)[:top_k]
+        validated = self._apply_rule_engine(suggestions, code_type)[:top_k]
+        # Enrich each suggestion with the catalog description (matched by normalised code)
+        desc_map = {self._normalise_code(c["code"]): c["description"] for c in candidates}
+        for s in validated:
+            if not s.get("description"):
+                s["description"] = desc_map.get(self._normalise_code(s["code"]), "")
+        return validated
 
     # ------------------------------------------------------------------
     # Response parsing
@@ -258,6 +273,11 @@ class CodingService:
     # ------------------------------------------------------------------
 
     @staticmethod
+    def _normalise_code(code: str) -> str:
+        """Strip dots so catalog lookup works regardless of dot-notation."""
+        return code.upper().replace(".", "")
+
+    @staticmethod
     def _apply_rule_engine(suggestions: list[dict], code_type: str) -> list[dict]:
         valid = []
         for s in suggestions:
@@ -276,12 +296,23 @@ class CodingService:
             except (ValueError, TypeError):
                 conf = 0.0
 
+            llm_status = str(s.get("status", "")).lower()
+            status = llm_status if llm_status in ("present", "suspected") else "needs_review"
+
+            try:
+                page = int(s["page"]) if s.get("page") is not None else None
+            except (ValueError, TypeError):
+                page = None
+
             valid.append(
                 {
                     "code": code.upper(),
+                    "condition": str(s.get("condition", "")).strip() or None,
                     "confidence": conf,
+                    "description": str(s.get("description", "")).strip() or None,
                     "rationale": str(s.get("rationale", "")),
-                    "status": "needs_review",
+                    "status": status,
+                    "page": page,
                 }
             )
         return valid

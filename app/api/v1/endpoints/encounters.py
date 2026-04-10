@@ -325,18 +325,24 @@ async def get_emr_status(
     icd_suggestions = [
         {
             "code": s.code,
+            "condition": s.condition,
+            "description": s.description,
             "confidence": float(s.confidence) if s.confidence is not None else None,
             "rationale": s.rationale,
             "status": s.status,
+            "page": s.page,
         }
         for s in icd_rows
     ]
     cpt_suggestions = [
         {
             "code": s.code,
+            "condition": s.condition,
+            "description": s.description,
             "confidence": float(s.confidence) if s.confidence is not None else None,
             "rationale": s.rationale,
             "status": s.status,
+            "page": s.page,
         }
         for s in cpt_rows
     ]

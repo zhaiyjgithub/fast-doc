@@ -48,8 +48,11 @@ class CodingSuggestion(Base):
     code: Mapped[str] = mapped_column(String(16), nullable=False)
     rank: Mapped[int] = mapped_column(default=1)
     confidence: Mapped[float | None] = mapped_column(Numeric(4, 3), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    condition: Mapped[str | None] = mapped_column(Text, nullable=True)
     rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="needs_review")
+    page: Mapped[int | None] = mapped_column(nullable=True)
     modifier_hint: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

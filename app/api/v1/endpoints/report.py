@@ -26,9 +26,12 @@ class CodeSuggestionItem(BaseModel):
     code: str
     code_type: str
     rank: int
+    condition: str | None = None
+    description: str | None = None
     confidence: float | None
     rationale: str | None
     status: str
+    page: int | None = None
     evidence: list[EvidenceItem] = []
 
 
@@ -108,9 +111,12 @@ async def get_encounter_report(
             code=s.code,
             code_type=s.code_type,
             rank=s.rank,
+            condition=s.condition,
+            description=s.description,
             confidence=float(s.confidence) if s.confidence is not None else None,
             rationale=s.rationale,
             status=s.status,
+            page=s.page,
             evidence=ev_items,
         )
         if s.code_type == "ICD":

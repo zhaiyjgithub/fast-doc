@@ -26,16 +26,29 @@ SessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSe
 
 async def ingest_icd(db: AsyncSession) -> None:
     svc = CatalogIngestionService(db)
-    # Full ICD-10-CM 2025 (all chapters, 23,082 codes)
+    total = 0
+
+    # Primary: full ICD-10-CM 2025 (A-Z minus S/V/W/X, 23,082 codes)
     tsv = MEDICAL_CODES_DIR / "icd10cm_full_2025.tsv"
     if not tsv.exists():
-        # Fallback to J-chapter only if full file not present
         tsv = MEDICAL_CODES_DIR / "icd10cm_J_respiratory_2025.tsv"
         if not tsv.exists():
             print(f"  SKIP: no ICD TSV found in {MEDICAL_CODES_DIR}")
             return
     count = await svc.ingest_icd(tsv)
-    print(f"  ICD-10-CM: {count} new rows ingested from {tsv.name}")
+    total += count
+    print(f"  ICD-10-CM base: {count} new rows from {tsv.name}")
+
+    # Supplement: S/V/W/X chapters (trauma & external causes)
+    svwx = MEDICAL_CODES_DIR / "icd10cm_SVWX_2025.tsv"
+    if svwx.exists():
+        count = await svc.ingest_icd(svwx)
+        total += count
+        print(f"  ICD-10-CM S/V/W/X: {count} new rows from {svwx.name}")
+    else:
+        print(f"  SKIP S/V/W/X: {svwx} not found")
+
+    print(f"  ICD-10-CM total new rows: {total}")
 
 
 async def ingest_cpt(db: AsyncSession) -> None:
