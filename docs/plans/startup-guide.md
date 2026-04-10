@@ -26,7 +26,7 @@ cd docker && docker compose up -d
 cd ..
 ```
 
-Starts `emr_postgres` container (`pgvector/pgvector:pg17`) on port **5433**.
+Starts `emr_postgres` container (`pgvector/pgvector:pg17`) on port **5432**.
 
 ---
 
