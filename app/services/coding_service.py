@@ -5,12 +5,14 @@ Pipeline:
   2. catalog_search: SQL pre-filter using ILIKE keyword matching
   3. LLM ranker: Qwen selects top codes with confidence + rationale
   4. rule_engine: post-LLM validation (code format check, etc.)
+  5. persist: write CodingSuggestion + CodingEvidenceLink rows
 """
 
 from __future__ import annotations
 
 import json
 import re
+import uuid
 from typing import TYPE_CHECKING
 
 from sqlalchemy import text
@@ -30,6 +32,7 @@ class CodingService:
     async def suggest_icd(
         self,
         *,
+        encounter_id: str,
         soap_note: dict,
         emr_text: str,
         request_id: str | None = None,
@@ -40,7 +43,7 @@ class CodingService:
         candidates = await self._search_icd_catalog(keywords)
         if not candidates:
             return []
-        return await self._rank_codes(
+        suggestions = await self._rank_codes(
             code_type="ICD",
             candidates=candidates,
             soap_note=soap_note,
@@ -48,10 +51,13 @@ class CodingService:
             request_id=request_id,
             top_k=top_k,
         )
+        await self._persist_suggestions(suggestions, "ICD", encounter_id, request_id)
+        return suggestions
 
     async def suggest_cpt(
         self,
         *,
+        encounter_id: str,
         soap_note: dict,
         emr_text: str,
         request_id: str | None = None,
@@ -62,7 +68,7 @@ class CodingService:
         candidates = await self._search_cpt_catalog(keywords)
         if not candidates:
             return []
-        return await self._rank_codes(
+        suggestions = await self._rank_codes(
             code_type="CPT",
             candidates=candidates,
             soap_note=soap_note,
@@ -70,6 +76,46 @@ class CodingService:
             request_id=request_id,
             top_k=top_k,
         )
+        await self._persist_suggestions(suggestions, "CPT", encounter_id, request_id)
+        return suggestions
+
+    # ------------------------------------------------------------------
+    # Persistence
+    # ------------------------------------------------------------------
+
+    async def _persist_suggestions(
+        self,
+        suggestions: list[dict],
+        code_type: str,
+        encounter_id: str,
+        request_id: str | None,
+    ) -> None:
+        """Write CodingSuggestion + CodingEvidenceLink rows for each suggestion."""
+        from app.models.coding import CodingEvidenceLink, CodingSuggestion
+
+        enc_uuid = uuid.UUID(encounter_id)
+        for rank, s in enumerate(suggestions, start=1):
+            suggestion = CodingSuggestion(
+                encounter_id=enc_uuid,
+                request_id=request_id,
+                code_type=code_type,
+                code=s["code"],
+                rank=rank,
+                confidence=s["confidence"],
+                rationale=s["rationale"],
+                status="needs_review",
+            )
+            self.db.add(suggestion)
+            await self.db.flush()
+
+            evidence = CodingEvidenceLink(
+                suggestion_id=suggestion.id,
+                evidence_route=f"llm_{code_type.lower()}",
+                chunk_id=None,
+                excerpt=s["rationale"][:500] if s.get("rationale") else None,
+            )
+            self.db.add(evidence)
+            await self.db.flush()
 
     # ------------------------------------------------------------------
     # Keyword extraction (non-LLM, deterministic)
@@ -78,16 +124,25 @@ class CodingService:
     @staticmethod
     def _extract_keywords(soap_note: dict, emr_text: str) -> list[str]:
         """Extract clinical terms from SOAP sections."""
+        def _safe_str(val: object) -> str:
+            if isinstance(val, str):
+                return val
+            if isinstance(val, (dict, list)):
+                return json.dumps(val)
+            return str(val) if val is not None else ""
+
         text_parts = [
-            soap_note.get("assessment", ""),
-            soap_note.get("plan", ""),
-            soap_note.get("objective", ""),
+            _safe_str(soap_note.get("assessment", "")),
+            _safe_str(soap_note.get("plan", "")),
+            _safe_str(soap_note.get("objective", "")),
         ]
         combined = " ".join(text_parts)
         # Simple tokenisation: words ≥4 chars that are not stop words
         stopwords = {
             "with", "that", "this", "have", "from", "will", "been", "were",
             "they", "their", "also", "patient", "therapy", "treatment",
+            "including", "using", "based", "clinical", "should", "return",
+            "recommend", "evidence", "care", "each", "note", "week",
         }
         tokens = re.findall(r"\b[a-zA-Z]{4,}\b", combined)
         seen: set[str] = set()
@@ -97,7 +152,7 @@ class CodingService:
             if lower not in stopwords and lower not in seen:
                 seen.add(lower)
                 keywords.append(lower)
-            if len(keywords) >= 10:
+            if len(keywords) >= 15:
                 break
         return keywords
 
@@ -160,6 +215,7 @@ class CodingService:
         system = (
             f"You are a medical coding specialist. Given a clinical SOAP note and a list of "
             f"{code_type} code candidates, select the most appropriate codes. "
+            "Always respond in English. "
             "Return JSON array of objects with keys: code, confidence (0-1), rationale."
         )
         user = (
@@ -207,12 +263,12 @@ class CodingService:
         for s in suggestions:
             code = str(s.get("code", "")).strip()
             if code_type == "ICD":
-                # ICD-10-CM: letter + 2-7 alphanumeric chars
+                # ICD-10-CM: letter + 2 digits + optional decimal + up to 4 alphanumeric
                 if not re.match(r"^[A-Z]\d{2}\.?[\w]{0,4}$", code, re.IGNORECASE):
                     continue
             elif code_type == "CPT":
-                # CPT: 5-digit numeric
-                if not re.match(r"^\d{5}$", code):
+                # CPT: 4-5 alphanumeric chars (covers standard 5-digit and category-II/III codes)
+                if not re.match(r"^[\dA-Z]{4,5}$", code, re.IGNORECASE):
                     continue
             try:
                 conf = float(s.get("confidence", 0))

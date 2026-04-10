@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, String, Text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, String, Text  # noqa: F401
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -40,8 +40,8 @@ class PatientDemographics(Base):
     )
     ssn_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     ssn_last4: Mapped[str | None] = mapped_column(String(4), nullable=True)
-    phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    email: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    phone: Mapped[str | None] = mapped_column(Text, nullable=True)   # stores encrypted ciphertext
+    email: Mapped[str | None] = mapped_column(String(256), nullable=True)
     address_line1: Mapped[str | None] = mapped_column(String(256), nullable=True)
     city: Mapped[str | None] = mapped_column(String(64), nullable=True)
     state: Mapped[str | None] = mapped_column(String(4), nullable=True)

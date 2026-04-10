@@ -12,6 +12,8 @@ from app.models.ops import AuditEvent, LlmCall
 from app.models.patients import Patient, PatientDemographics
 from app.models.providers import Provider
 from app.models.rag import KnowledgeChunk, KnowledgeDocument, RetrievalLog
+from app.models.admin_user import AdminUser
+from app.models.users import User
 
 __all__ = [
     "Patient",
@@ -33,4 +35,6 @@ __all__ = [
     "RetrievalLog",
     "LlmCall",
     "AuditEvent",
+    "User",
+    "AdminUser",
 ]

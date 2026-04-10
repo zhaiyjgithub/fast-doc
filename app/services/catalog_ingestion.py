@@ -33,8 +33,8 @@ class CatalogIngestionService:
     async def ingest_icd(self, tsv_path: Path) -> int:
         """Load ICD-10-CM codes from a TSV file.
 
-        Expected columns (tab-separated):
-          code, description  (min required)
+        Expected columns (tab-separated, with header):
+          code, description, [chapter], [catalog_version]
         Chapter is derived from the first letter of the code.
         Returns the count of rows inserted.
         """
@@ -42,18 +42,16 @@ class CatalogIngestionService:
         count = 0
 
         with tsv_path.open(newline="", encoding="utf-8") as f:
-            reader = csv.reader(f, delimiter="\t")
+            reader = csv.DictReader(f, delimiter="\t")
             for row in reader:
-                if len(row) < 2:
-                    continue
-                code = row[0].strip()
-                description = row[1].strip()
-                if not code or not description:
+                code = (row.get("code") or "").strip()
+                description = (row.get("description") or "").strip()
+                if not code or not description or code.lower() == "code":
                     continue
                 if (code, CATALOG_VERSION_ICD) in existing:
                     continue
 
-                chapter = code[0].upper() if code else None
+                chapter = code[0].upper()
                 record = IcdCatalog(
                     code=code,
                     description=description,
@@ -63,7 +61,6 @@ class CatalogIngestionService:
                 self.db.add(record)
                 count += 1
 
-                # Batch flush every 500 rows
                 if count % 500 == 0:
                     await self.db.flush()
 
@@ -77,9 +74,9 @@ class CatalogIngestionService:
     async def ingest_cpt(self, csv_path: Path) -> int:
         """Load CPT codes from the Ref_CPT_202604091710.csv file.
 
-        Expected columns:
-          code, name (short_name), description, avg_fee, rvu
-        Rows with missing or non-numeric code are skipped.
+        CSV columns: CPTCode, CPTName, CPTDesc, ClinicID, DoctorID,
+                     SuperBill, Status, AvgFee, RVU
+        Rows with empty CPTCode are skipped.
         Returns the count of rows inserted.
         """
         existing = await self._existing_cpt_codes()
@@ -88,22 +85,29 @@ class CatalogIngestionService:
         with csv_path.open(newline="", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                code = (row.get("code") or row.get("CPT Code") or "").strip()
-                if not code or not code.isdigit():
+                # Support both original column names and legacy fallbacks
+                code = (
+                    row.get("CPTCode") or row.get("code") or row.get("CPT Code") or ""
+                ).strip().strip('"')
+                if not code:
                     continue
                 if (code, CATALOG_VERSION_CPT) in existing:
                     continue
 
-                short_name = (row.get("name") or row.get("Short Name") or "").strip()[:256]
-                description = (row.get("description") or row.get("Description") or "").strip()
+                short_name = (
+                    row.get("CPTName") or row.get("name") or row.get("Short Name") or ""
+                ).strip()[:256]
+                description = (
+                    row.get("CPTDesc") or row.get("description") or row.get("Description") or ""
+                ).strip()
 
                 try:
-                    avg_fee = float(row.get("avg_fee") or row.get("Avg Fee") or 0)
+                    avg_fee = float(row.get("AvgFee") or row.get("avg_fee") or row.get("Avg Fee") or 0)
                 except (ValueError, TypeError):
                     avg_fee = None
 
                 try:
-                    rvu = float(row.get("rvu") or row.get("RVU") or 0)
+                    rvu = float(row.get("RVU") or row.get("rvu") or 0)
                 except (ValueError, TypeError):
                     rvu = None
 

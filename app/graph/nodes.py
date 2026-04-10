@@ -182,10 +182,39 @@ async def generate_emr(
 # Node: suggest_codes
 # ---------------------------------------------------------------------------
 
-async def suggest_codes(state: EMRGraphState) -> EMRGraphState:
-    """ICD/CPT auto-coding — implemented in Task 7."""
+async def suggest_codes(
+    state: EMRGraphState,
+    *,
+    db: "AsyncSession | None" = None,
+) -> EMRGraphState:
+    """ICD/CPT auto-coding via CodingService."""
+    if db is None:
+        return {
+            "icd_suggestions": [],
+            "cpt_suggestions": [],
+            "current_node": "suggest_codes",
+        }
+
+    from app.services.coding_service import CodingService
+
+    soap_note = state.get("soap_note", {})
+    emr_text = state.get("emr_text", "")
+    request_id = state.get("request_id")
+
+    coding_svc = CodingService(db)
+    icd_suggestions = await coding_svc.suggest_icd(
+        soap_note=soap_note,
+        emr_text=emr_text,
+        request_id=request_id,
+    )
+    cpt_suggestions = await coding_svc.suggest_cpt(
+        soap_note=soap_note,
+        emr_text=emr_text,
+        request_id=request_id,
+    )
+
     return {
-        "icd_suggestions": [],
-        "cpt_suggestions": [],
+        "icd_suggestions": icd_suggestions,
+        "cpt_suggestions": cpt_suggestions,
         "current_node": "suggest_codes",
     }

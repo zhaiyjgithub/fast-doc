@@ -53,3 +53,47 @@ def redact_phi(text: str) -> str:
     for pattern, replacement in _REDACTION_PATTERNS:
         text = re.sub(pattern, replacement, text)
     return text
+
+
+# ---------------------------------------------------------------------------
+# JWT helpers
+# ---------------------------------------------------------------------------
+from datetime import datetime, timedelta, timezone  # noqa: E402
+
+from jose import JWTError, jwt  # noqa: F401, E402
+
+
+def create_access_token(
+    subject: str,
+    user_type: str,  # "doctor" | "admin"
+    provider_id: str | None = None,
+) -> str:
+    """Create a short-lived access token.
+
+    ``user_type`` distinguishes provider tokens (look up *users* table) from
+    admin console tokens (look up *admin_users* table).
+    """
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_TTL_MIN)
+    payload = {
+        "sub": subject,
+        "user_type": user_type,
+        "provider_id": provider_id,
+        "exp": expire,
+        "type": "access",
+    }
+    return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+
+
+def create_refresh_token(subject: str, user_type: str) -> str:
+    """Create a long-lived refresh token.
+
+    ``user_type`` is stored so that token refresh knows which table to look up.
+    """
+    expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_TTL_DAYS)
+    payload = {"sub": subject, "user_type": user_type, "exp": expire, "type": "refresh"}
+    return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+
+
+def decode_token(token: str) -> dict:
+    """Decode and validate a JWT token. Raises JWTError on invalid."""
+    return jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])

@@ -18,6 +18,10 @@ class Settings(BaseSettings):
 
     # Security
     ENCRYPTION_KEY: str = ""
+    JWT_SECRET: str = "change-me-in-production-use-strong-secret"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_TTL_MIN: int = 60
+    REFRESH_TOKEN_TTL_DAYS: int = 7
 
     # MinerU
     MINERU_API_KEY: str = ""

@@ -72,6 +72,9 @@ async def chat(
     return content
 
 
+_EMBED_BATCH_SIZE = 10  # Qwen embedding API limit per request
+
+
 async def embed(
     texts: list[str],
     *,
@@ -79,12 +82,24 @@ async def embed(
     db: "AsyncSession | None" = None,
     request_id: str | None = None,
 ) -> list[list[float]]:
-    """Embed a batch of texts; returns list of float vectors."""
+    """Embed a batch of texts; auto-splits into batches of ≤10 (Qwen API limit)."""
     model = model or settings.QWEN_EMBEDDING_MODEL
-    start = time.monotonic()
-    response = await get_client().embeddings.create(model=model, input=texts)
-    latency_ms = int((time.monotonic() - start) * 1000)
-    vectors = [item.embedding for item in sorted(response.data, key=lambda x: x.index)]
+    all_vectors: list[list[float]] = []
+    total_prompt_tokens = 0
+    total_latency_ms = 0
+
+    for i in range(0, len(texts), _EMBED_BATCH_SIZE):
+        batch = texts[i: i + _EMBED_BATCH_SIZE]
+        start = time.monotonic()
+        response = await get_client().embeddings.create(model=model, input=batch)
+        total_latency_ms += int((time.monotonic() - start) * 1000)
+        batch_vectors = [item.embedding for item in sorted(response.data, key=lambda x: x.index)]
+        all_vectors.extend(batch_vectors)
+        if response.usage:
+            total_prompt_tokens += response.usage.prompt_tokens
+
+    vectors = all_vectors
+    latency_ms = total_latency_ms
 
     if db is not None:
         await _log_llm_call(
@@ -93,7 +108,7 @@ async def embed(
             node_name="embed",
             model_name=model,
             call_type="embed",
-            prompt_tokens=response.usage.prompt_tokens if response.usage else None,
+            prompt_tokens=total_prompt_tokens or None,
             completion_tokens=None,
             latency_ms=latency_ms,
         )

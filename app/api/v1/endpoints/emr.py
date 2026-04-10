@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.deps import CurrentPrincipal, get_current_user
 from app.db.session import get_db
 from app.services.audit_service import AuditService, EventType
 from app.services.emr_service import EMRService
@@ -51,6 +52,7 @@ class EMRGenerateResponse(BaseModel):
 async def generate_emr(
     body: EMRGenerateRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
+    _user: Annotated[CurrentPrincipal, Depends(get_current_user)],
 ) -> EMRGenerateResponse:
     """Generate an AI EMR SOAP note from an encounter transcript."""
     audit = AuditService(db)

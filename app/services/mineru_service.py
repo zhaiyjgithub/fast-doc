@@ -75,19 +75,23 @@ class MinerUService:
             resp.raise_for_status()
             batch_data = resp.json()
 
-        file_infos = batch_data.get("data", {}).get("files", [])
-        if not file_infos:
+        resp_data = batch_data.get("data", {})
+        # API returns either data.file_urls (list of strings) or data.files (list of dicts)
+        raw_urls = resp_data.get("file_urls") or [
+            f.get("url") for f in resp_data.get("files", [])
+        ]
+        if not raw_urls or len(raw_urls) != len(file_paths):
             raise MinerUError(f"No file upload URLs returned: {batch_data}")
 
         # Step 2: Upload each file to its pre-signed URL via PUT
         async with httpx.AsyncClient(timeout=120.0) as client:
-            for path, info in zip(file_paths, file_infos):
-                put_url = info.get("url")
+            for path, put_url in zip(file_paths, raw_urls):
                 if not put_url:
                     raise MinerUError(f"Missing pre-signed URL for {path.name}")
                 file_bytes = path.read_bytes()
                 upload_resp = await client.put(put_url, content=file_bytes)
                 upload_resp.raise_for_status()
+                print(f"    uploaded: {path.name}")
 
         batch_id = batch_data.get("data", {}).get("batch_id")
         if not batch_id:
@@ -124,27 +128,46 @@ class MinerUService:
                     raise MinerUError(f"MinerU task failed: {data}")
         raise MinerUError(f"MinerU task {task_id} timed out after {settings.MINERU_MAX_WAIT}s")
 
+    # States that mean the job is still in progress (not terminal)
+    _WAITING_STATES = frozenset(
+        {"pending", "running", "waiting-file", "queued", "uploaded", "processing", "extracting"}
+    )
+    _FAILED_STATES = frozenset({"failed", "error", "cancelled"})
+
     async def _poll_batch(self, batch_id: str) -> list[str]:
-        """Poll batch endpoint until all files are done; return list of full_zip_urls."""
+        """Poll batch endpoint until all files have full_zip_url; return list of zip URLs.
+
+        MinerU poll response structure:
+          data.extract_result: list of {file_name, state, err_msg, full_zip_url?}
+        """
         poll_url = settings.MINERU_BATCH_POLL_URL.format(batch_id=batch_id)
         deadline = asyncio.get_event_loop().time() + settings.MINERU_MAX_WAIT
+        last_states: list[str] = []
         async with httpx.AsyncClient(timeout=30.0) as client:
             while asyncio.get_event_loop().time() < deadline:
                 await asyncio.sleep(settings.MINERU_POLL_INTERVAL)
                 resp = await client.get(poll_url, headers=self._headers)
                 resp.raise_for_status()
                 data = resp.json().get("data", {})
-                files = data.get("files", [])
+                # API returns extract_result (not files)
+                files = data.get("extract_result") or data.get("files") or []
                 states = [f.get("state", "") for f in files]
-                # waiting-file: still uploading to OSS — keep waiting
-                if any(s in ("pending", "running", "waiting-file") for s in states):
-                    continue
-                if any(s in ("failed", "error") for s in states):
+                last_states = states
+                print(f"    [poll] batch states: {states}")
+
+                if any(s in self._FAILED_STATES for s in states):
                     raise MinerUError(f"One or more batch files failed: {data}")
-                # All done
-                zip_urls = [f["full_zip_url"] for f in files if f.get("full_zip_url")]
-                return zip_urls
-        raise MinerUError(f"MinerU batch {batch_id} timed out after {settings.MINERU_MAX_WAIT}s")
+
+                # Wait until we actually have files AND all have download URLs
+                zip_urls = [f.get("full_zip_url") for f in files]
+                if files and all(url for url in zip_urls):
+                    return [u for u in zip_urls if u]
+
+                # Still in progress — keep polling
+        raise MinerUError(
+            f"MinerU batch {batch_id} timed out after {settings.MINERU_MAX_WAIT}s "
+            f"(last states: {last_states})"
+        )
 
     # ------------------------------------------------------------------
     # Download helper

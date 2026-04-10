@@ -20,8 +20,10 @@ class KnowledgeDocument(Base):
     title: Mapped[str] = mapped_column(String(512), nullable=False)
     version: Mapped[str | None] = mapped_column(String(64), nullable=True)
     source_file: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    source_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)  # SHA256 of source content
     effective_from: Mapped[date | None] = mapped_column(Date, nullable=True)
     effective_to: Mapped[date | None] = mapped_column(Date, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="done", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

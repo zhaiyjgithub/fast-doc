@@ -26,12 +26,16 @@ SessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSe
 
 async def ingest_icd(db: AsyncSession) -> None:
     svc = CatalogIngestionService(db)
-    tsv = MEDICAL_CODES_DIR / "icd10cm_J_respiratory_2025.tsv"
+    # Full ICD-10-CM 2025 (all chapters, 23,082 codes)
+    tsv = MEDICAL_CODES_DIR / "icd10cm_full_2025.tsv"
     if not tsv.exists():
-        print(f"  SKIP: {tsv} not found")
-        return
+        # Fallback to J-chapter only if full file not present
+        tsv = MEDICAL_CODES_DIR / "icd10cm_J_respiratory_2025.tsv"
+        if not tsv.exists():
+            print(f"  SKIP: no ICD TSV found in {MEDICAL_CODES_DIR}")
+            return
     count = await svc.ingest_icd(tsv)
-    print(f"  ICD-10-CM J-chapter: {count} rows ingested from {tsv.name}")
+    print(f"  ICD-10-CM: {count} new rows ingested from {tsv.name}")
 
 
 async def ingest_cpt(db: AsyncSession) -> None:
@@ -58,7 +62,7 @@ async def main(args: argparse.Namespace) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Ingest ICD/CPT catalogs")
-    parser.add_argument("--icd", action="store_true", help="Ingest ICD-10-CM J-chapter codes")
+    parser.add_argument("--icd", action="store_true", help="Ingest full ICD-10-CM 2025 codes (all chapters)")
     parser.add_argument("--cpt", action="store_true", help="Ingest CPT codes")
     parser.add_argument("--all", action="store_true", default=True, help="Ingest all catalogs (default)")
     asyncio.run(main(parser.parse_args()))

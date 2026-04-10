@@ -90,7 +90,9 @@ def build_system_prompt(
         parts.append(sub_add)
     parts.append(style)
     parts.append(
-        "Always return your response as valid JSON with keys: "
+        "The patient transcript may be in any language. "
+        "Always respond entirely in English regardless of the input language. "
+        'Always return your response as valid JSON with keys: '
         '"subjective", "objective", "assessment", "plan".'
     )
     return " ".join(parts)
@@ -171,6 +173,43 @@ class EMRService:
         soap_note = self._parse_soap(soap_json_text)
         emr_text = self._render_emr(soap_note)
 
+        # 8. Persist EmrNote
+        from app.models.clinical import EmrNote
+        emr_note = EmrNote(
+            encounter_id=uuid.UUID(encounter_id),
+            request_id=request_id,
+            soap_json=soap_note,
+            note_text=emr_text,
+            context_trace_json={
+                "provider_id": str(provider.id) if provider else None,
+                "provider_specialty": provider.specialty if provider else None,
+                "provider_sub_specialty": provider.sub_specialty if provider else None,
+                "provider_prompt_style": provider.prompt_style if provider else "standard",
+                "patient_chunks_retrieved": len(patient_chunks),
+                "guideline_chunks_retrieved": len(guideline_chunks),
+            },
+            is_final=False,
+            version=1,
+        )
+        self.db.add(emr_note)
+        await self.db.flush()
+
+        # 9. ICD / CPT auto-coding
+        from app.services.coding_service import CodingService
+        coding_svc = CodingService(self.db)
+        icd_suggestions = await coding_svc.suggest_icd(
+            encounter_id=encounter_id,
+            soap_note=soap_note,
+            emr_text=emr_text,
+            request_id=request_id,
+        )
+        cpt_suggestions = await coding_svc.suggest_cpt(
+            encounter_id=encounter_id,
+            soap_note=soap_note,
+            emr_text=emr_text,
+            request_id=request_id,
+        )
+
         return EMRGraphState(
             request_id=request_id or "",
             encounter_id=encounter_id,
@@ -186,8 +225,8 @@ class EMRService:
             merged_context=merged_context,
             soap_note=soap_note,
             emr_text=emr_text,
-            icd_suggestions=[],
-            cpt_suggestions=[],
+            icd_suggestions=icd_suggestions,
+            cpt_suggestions=cpt_suggestions,
             errors=[],
             current_node="generate_emr",
         )
@@ -230,22 +269,33 @@ class EMRService:
         """Extract JSON from raw LLM output (may be wrapped in markdown code blocks)."""
         import re
 
+        def _to_str(val: object) -> str:
+            """Coerce any value to a plain string."""
+            if isinstance(val, str):
+                return val
+            if isinstance(val, dict):
+                # e.g. {"findings": "...", "impression": "..."} → joined prose
+                return " ".join(str(v) for v in val.values())
+            if isinstance(val, list):
+                return " ".join(str(v) for v in val)
+            return str(val) if val is not None else ""
+
         # Strip markdown code fences
         text = re.sub(r"```(?:json)?\s*", "", raw_text).strip().rstrip("`").strip()
         try:
             data = json.loads(text)
             return {
-                "subjective": data.get("subjective", ""),
-                "objective": data.get("objective", ""),
-                "assessment": data.get("assessment", ""),
-                "plan": data.get("plan", ""),
+                "subjective": _to_str(data.get("subjective", "")),
+                "objective":  _to_str(data.get("objective", "")),
+                "assessment": _to_str(data.get("assessment", "")),
+                "plan":       _to_str(data.get("plan", "")),
             }
         except json.JSONDecodeError:
             return {
                 "subjective": raw_text,
-                "objective": "",
+                "objective":  "",
                 "assessment": "",
-                "plan": "",
+                "plan":       "",
             }
 
     @staticmethod
