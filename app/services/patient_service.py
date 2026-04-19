@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import secrets
 import uuid
+from datetime import date
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +17,17 @@ def _generate_mrn() -> str:
     return "P-" + secrets.token_hex(4).upper()
 
 
+def _coerce_uuid(value: str | uuid.UUID | None) -> uuid.UUID | None:
+    if value is None:
+        return None
+    if isinstance(value, uuid.UUID):
+        return value
+    try:
+        return uuid.UUID(str(value))
+    except (TypeError, ValueError):
+        return None
+
+
 class PatientService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -27,6 +39,12 @@ class PatientService:
         patient = Patient(
             id=uuid.uuid4(),
             mrn=mrn,
+            created_by=_coerce_uuid(data.get("created_by")),
+            clinic_patient_id=data.get("clinic_patient_id"),
+            clinic_id=data.get("clinic_id"),
+            division_id=data.get("division_id"),
+            clinic_system=data.get("clinic_system"),
+            clinic_name=data.get("clinic_name"),
             first_name=data["first_name"],
             last_name=data["last_name"],
             date_of_birth=data.get("date_of_birth"),
@@ -88,10 +106,34 @@ class PatientService:
         if patient is None:
             return None
 
-        updatable = ("first_name", "last_name", "date_of_birth", "gender", "primary_language")
+        updatable = (
+            "first_name",
+            "last_name",
+            "date_of_birth",
+            "gender",
+            "primary_language",
+            "clinic_patient_id",
+            "clinic_id",
+            "division_id",
+            "clinic_system",
+            "clinic_name",
+        )
+        nullable_clearable = {
+            "date_of_birth",
+            "gender",
+            "clinic_patient_id",
+            "clinic_id",
+            "division_id",
+            "clinic_system",
+            "clinic_name",
+        }
         for field in updatable:
-            if field in data and data[field] is not None:
-                setattr(patient, field, data[field])
+            if field not in data:
+                continue
+            value = _coerce_uuid(data[field]) if field == "created_by" else data[field]
+            if value is None and field not in nullable_clearable:
+                continue
+            setattr(patient, field, value)
 
         await self.db.flush()
         await self.db.refresh(patient, ["demographics"])
@@ -109,9 +151,13 @@ class PatientService:
         self,
         q: str | None = None,
         name: str | None = None,
-        dob: str | None = None,
+        dob: date | None = None,
         mrn: str | None = None,
         patient_id: str | None = None,
+        clinic_patient_id: str | None = None,
+        clinic_id: str | None = None,
+        division_id: str | None = None,
+        clinic_system: str | None = None,
         language: str | None = None,
         page: int = 1,
         page_size: int = 20,
@@ -126,6 +172,14 @@ class PatientService:
             stmt = stmt.where(Patient.id == patient_id)
         if mrn:
             stmt = stmt.where(Patient.mrn.ilike(f"{mrn}%"))
+        if clinic_patient_id:
+            stmt = stmt.where(Patient.clinic_patient_id == clinic_patient_id)
+        if clinic_id:
+            stmt = stmt.where(Patient.clinic_id == clinic_id)
+        if division_id:
+            stmt = stmt.where(Patient.division_id == division_id)
+        if clinic_system:
+            stmt = stmt.where(Patient.clinic_system == clinic_system)
         if dob:
             stmt = stmt.where(Patient.date_of_birth == dob)
         if name:

@@ -18,6 +18,15 @@ def _generate_external_id() -> str:
     return "PRV-" + secrets.token_hex(4).upper()
 
 
+def _coerce_provider_id(provider_id: uuid.UUID | str) -> uuid.UUID | None:
+    if isinstance(provider_id, uuid.UUID):
+        return provider_id
+    try:
+        return uuid.UUID(str(provider_id))
+    except (TypeError, ValueError):
+        return None
+
+
 class ProviderService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -34,6 +43,10 @@ class ProviderService:
         provider = Provider(
             id=uuid.uuid4(),
             external_provider_id=data.get("external_provider_id") or _generate_external_id(),
+            provider_clinic_id=data.get("provider_clinic_id"),
+            division_id=data.get("division_id"),
+            clinic_system=data.get("clinic_system"),
+            clinic_name=data.get("clinic_name"),
             first_name=data["first_name"],
             last_name=data["last_name"],
             full_name=data["full_name"],
@@ -63,8 +76,11 @@ class ProviderService:
         await self.db.flush()
         return provider
 
-    async def get(self, provider_id: str) -> Provider | None:
-        result = await self.db.execute(select(Provider).where(Provider.id == provider_id))
+    async def get(self, provider_id: uuid.UUID | str) -> Provider | None:
+        parsed_provider_id = _coerce_provider_id(provider_id)
+        if parsed_provider_id is None:
+            return None
+        result = await self.db.execute(select(Provider).where(Provider.id == parsed_provider_id))
         return result.scalars().first()
 
     async def list_providers(
@@ -85,7 +101,7 @@ class ProviderService:
         )
         return list(rows.scalars().all()), total
 
-    async def update(self, provider_id: str, data: dict) -> Provider | None:
+    async def update(self, provider_id: uuid.UUID | str, data: dict) -> Provider | None:
         provider = await self.get(provider_id)
         if provider is None:
             return None
@@ -93,15 +109,32 @@ class ProviderService:
         updatable = (
             "first_name",
             "last_name",
+            "provider_clinic_id",
+            "division_id",
+            "clinic_system",
+            "clinic_name",
             "credentials",
             "specialty",
             "sub_specialty",
             "prompt_style",
             "is_active",
         )
+        nullable_clearable = {
+            "provider_clinic_id",
+            "division_id",
+            "clinic_system",
+            "clinic_name",
+            "credentials",
+            "specialty",
+            "sub_specialty",
+        }
         for field in updatable:
-            if field in data and data[field] is not None:
-                setattr(provider, field, data[field])
+            if field not in data:
+                continue
+            value = data[field]
+            if value is None and field not in nullable_clearable:
+                continue
+            setattr(provider, field, value)
 
         # Regenerate full_name if name parts changed
         if "first_name" in data or "last_name" in data or "credentials" in data:
@@ -111,7 +144,7 @@ class ProviderService:
         await self.db.flush()
         return provider
 
-    async def soft_delete(self, provider_id: str) -> bool:
+    async def soft_delete(self, provider_id: uuid.UUID | str) -> bool:
         provider = await self.get(provider_id)
         if provider is None:
             return False

@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import CurrentPrincipal, get_current_user
+from app.api.v1.schemas import ApiResponse, MessagePayload
 from app.core.security import create_access_token, create_refresh_token, decode_token
 from app.db.session import get_db
 from app.models.users import User
@@ -39,11 +40,11 @@ class UserMe(BaseModel):
     provider_id: str | None
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=ApiResponse[TokenResponse])
 async def login(
     form: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> TokenResponse:
+) -> ApiResponse[TokenResponse]:
     """Login for provider (doctor) accounts.
 
     Authenticates against the *users* table only.  Admin console users must
@@ -63,19 +64,21 @@ async def login(
         provider_id=str(user.provider_id) if user.provider_id else None,
     )
     refresh = create_refresh_token(subject=str(user.id), user_type="doctor")
-    return TokenResponse(
-        access_token=access,
-        refresh_token=refresh,
-        user_id=str(user.id),
-        provider_id=str(user.provider_id) if user.provider_id else None,
+    return ApiResponse(
+        data=TokenResponse(
+            access_token=access,
+            refresh_token=refresh,
+            user_id=str(user.id),
+            provider_id=str(user.provider_id) if user.provider_id else None,
+        )
     )
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post("/refresh", response_model=ApiResponse[TokenResponse])
 async def refresh_token(
     body: RefreshRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> TokenResponse:
+) -> ApiResponse[TokenResponse]:
     """Exchange a provider refresh token for a new access token."""
     credentials_exc = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -105,26 +108,30 @@ async def refresh_token(
         provider_id=str(user.provider_id) if user.provider_id else None,
     )
     new_refresh = create_refresh_token(subject=str(user.id), user_type="doctor")
-    return TokenResponse(
-        access_token=access,
-        refresh_token=new_refresh,
-        user_id=str(user.id),
-        provider_id=str(user.provider_id) if user.provider_id else None,
+    return ApiResponse(
+        data=TokenResponse(
+            access_token=access,
+            refresh_token=new_refresh,
+            user_id=str(user.id),
+            provider_id=str(user.provider_id) if user.provider_id else None,
+        )
     )
 
 
-@router.post("/logout", status_code=status.HTTP_200_OK)
-async def logout(_principal: Annotated[CurrentPrincipal, Depends(get_current_user)]) -> dict:
+@router.post("/logout", status_code=status.HTTP_200_OK, response_model=ApiResponse[MessagePayload])
+async def logout(_principal: Annotated[CurrentPrincipal, Depends(get_current_user)]) -> ApiResponse[MessagePayload]:
     """Logout (stateless — client discards token)."""
-    return {"message": "Logged out successfully"}
+    return ApiResponse(data=MessagePayload(message="Logged out successfully"))
 
 
-@router.get("/me", response_model=UserMe)
-async def me(principal: Annotated[CurrentPrincipal, Depends(get_current_user)]) -> UserMe:
+@router.get("/me", response_model=ApiResponse[UserMe])
+async def me(principal: Annotated[CurrentPrincipal, Depends(get_current_user)]) -> ApiResponse[UserMe]:
     """Return current authenticated user info (works for both doctor and admin tokens)."""
-    return UserMe(
-        user_id=principal.id,
-        email=principal.email,
-        user_type=principal.user_type,
-        provider_id=principal.provider_id,
+    return ApiResponse(
+        data=UserMe(
+            user_id=principal.id,
+            email=principal.email,
+            user_type=principal.user_type,
+            provider_id=principal.provider_id,
+        )
     )

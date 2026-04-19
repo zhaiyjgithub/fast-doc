@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import CurrentPrincipal, require_admin
+from app.api.v1.schemas import ApiResponse, MessagePayload
 from app.core.security import create_access_token, create_refresh_token, decode_token
 from app.db.session import get_db
 from app.models.admin_user import AdminUser
@@ -38,11 +39,11 @@ class AdminMe(BaseModel):
     user_type: str = "admin"
 
 
-@router.post("/login", response_model=AdminTokenResponse)
+@router.post("/login", response_model=ApiResponse[AdminTokenResponse])
 async def admin_login(
     form: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> AdminTokenResponse:
+) -> ApiResponse[AdminTokenResponse]:
     """Login for admin console users. Authenticates against the admin_users table."""
     svc = AdminUserService(db)
     admin = await svc.authenticate(form.username, form.password)
@@ -54,18 +55,20 @@ async def admin_login(
         )
     access = create_access_token(subject=str(admin.id), user_type="admin")
     refresh = create_refresh_token(subject=str(admin.id), user_type="admin")
-    return AdminTokenResponse(
-        access_token=access,
-        refresh_token=refresh,
-        user_id=str(admin.id),
+    return ApiResponse(
+        data=AdminTokenResponse(
+            access_token=access,
+            refresh_token=refresh,
+            user_id=str(admin.id),
+        )
     )
 
 
-@router.post("/refresh", response_model=AdminTokenResponse)
+@router.post("/refresh", response_model=ApiResponse[AdminTokenResponse])
 async def admin_refresh_token(
     body: AdminRefreshRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> AdminTokenResponse:
+) -> ApiResponse[AdminTokenResponse]:
     """Exchange an admin refresh token for a new access token."""
     credentials_exc = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -90,31 +93,35 @@ async def admin_refresh_token(
 
     access = create_access_token(subject=str(admin.id), user_type="admin")
     new_refresh = create_refresh_token(subject=str(admin.id), user_type="admin")
-    return AdminTokenResponse(
-        access_token=access,
-        refresh_token=new_refresh,
-        user_id=str(admin.id),
+    return ApiResponse(
+        data=AdminTokenResponse(
+            access_token=access,
+            refresh_token=new_refresh,
+            user_id=str(admin.id),
+        )
     )
 
 
-@router.post("/logout", status_code=status.HTTP_200_OK)
-async def admin_logout(_principal: Annotated[CurrentPrincipal, Depends(require_admin)]) -> dict:
+@router.post("/logout", status_code=status.HTTP_200_OK, response_model=ApiResponse[MessagePayload])
+async def admin_logout(_principal: Annotated[CurrentPrincipal, Depends(require_admin)]) -> ApiResponse[MessagePayload]:
     """Logout (stateless — client discards token)."""
-    return {"message": "Logged out successfully"}
+    return ApiResponse(data=MessagePayload(message="Logged out successfully"))
 
 
-@router.get("/me", response_model=AdminMe)
+@router.get("/me", response_model=ApiResponse[AdminMe])
 async def admin_me(
     principal: Annotated[CurrentPrincipal, Depends(require_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> AdminMe:
+) -> ApiResponse[AdminMe]:
     """Return current admin user info."""
     result = await db.execute(
         select(AdminUser).where(AdminUser.id == principal.id)
     )
     admin = result.scalars().first()
-    return AdminMe(
-        user_id=str(admin.id),
-        email=admin.email,
-        full_name=admin.full_name,
+    return ApiResponse(
+        data=AdminMe(
+            user_id=str(admin.id),
+            email=admin.email,
+            full_name=admin.full_name,
+        )
     )

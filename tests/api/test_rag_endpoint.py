@@ -2,6 +2,22 @@
 
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
+from app.api.v1.deps import CurrentPrincipal, require_admin
+from app.main import app
+
+
+async def _fake_admin() -> CurrentPrincipal:
+    return CurrentPrincipal(id="admin-1", email="admin@example.com", user_type="admin")
+
+
+@pytest.fixture(autouse=True)
+def _override_dependencies():
+    app.dependency_overrides[require_admin] = _fake_admin
+    yield
+    app.dependency_overrides.pop(require_admin, None)
+
 
 async def test_ingest_json(async_client):
     with patch(

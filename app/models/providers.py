@@ -14,6 +14,10 @@ class Provider(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     external_provider_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    provider_clinic_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    division_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    clinic_system: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    clinic_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     first_name: Mapped[str] = mapped_column(String(64), nullable=False)
     last_name: Mapped[str] = mapped_column(String(64), nullable=False)
     full_name: Mapped[str] = mapped_column(String(128), nullable=False)

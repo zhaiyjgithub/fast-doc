@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import CurrentPrincipal, require_admin
+from app.api.v1.schemas import ApiResponse
 from app.db.session import get_db
 from app.models.admin_user import AdminUser
 from app.services.admin_user_service import AdminUserService
@@ -58,25 +59,25 @@ class AdminUserOut(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-@router.get("", response_model=list[AdminUserOut])
+@router.get("", response_model=ApiResponse[list[AdminUserOut]])
 async def list_admin_users(
     skip: int = 0,
     limit: int = 50,
     _principal: Annotated[CurrentPrincipal, Depends(require_admin)] = None,
     db: Annotated[AsyncSession, Depends(get_db)] = None,
-) -> list[AdminUserOut]:
+) -> ApiResponse[list[AdminUserOut]]:
     """List all admin console users. Admin only."""
     svc = AdminUserService(db)
     users = await svc.list_users(skip=skip, limit=limit)
-    return [AdminUserOut.from_model(u) for u in users]
+    return ApiResponse(data=[AdminUserOut.from_model(u) for u in users])
 
 
-@router.post("", response_model=AdminUserOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ApiResponse[AdminUserOut], status_code=status.HTTP_201_CREATED)
 async def create_admin_user(
     body: AdminUserCreate,
     _principal: Annotated[CurrentPrincipal, Depends(require_admin)] = None,
     db: Annotated[AsyncSession, Depends(get_db)] = None,
-) -> AdminUserOut:
+) -> ApiResponse[AdminUserOut]:
     """Create a new admin console user. Admin only."""
     svc = AdminUserService(db)
     existing = await svc.get_by_email(body.email)
@@ -87,30 +88,30 @@ async def create_admin_user(
         password=body.password,
         full_name=body.full_name,
     )
-    return AdminUserOut.from_model(admin)
+    return ApiResponse(data=AdminUserOut.from_model(admin))
 
 
-@router.get("/{admin_id}", response_model=AdminUserOut)
+@router.get("/{admin_id}", response_model=ApiResponse[AdminUserOut])
 async def get_admin_user(
     admin_id: uuid.UUID,
     _principal: Annotated[CurrentPrincipal, Depends(require_admin)] = None,
     db: Annotated[AsyncSession, Depends(get_db)] = None,
-) -> AdminUserOut:
+) -> ApiResponse[AdminUserOut]:
     """Get a single admin user. Admin only."""
     svc = AdminUserService(db)
     admin = await svc.get_by_id(admin_id)
     if admin is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Admin user not found")
-    return AdminUserOut.from_model(admin)
+    return ApiResponse(data=AdminUserOut.from_model(admin))
 
 
-@router.put("/{admin_id}", response_model=AdminUserOut)
+@router.put("/{admin_id}", response_model=ApiResponse[AdminUserOut])
 async def update_admin_user(
     admin_id: uuid.UUID,
     body: AdminUserUpdate,
     _principal: Annotated[CurrentPrincipal, Depends(require_admin)] = None,
     db: Annotated[AsyncSession, Depends(get_db)] = None,
-) -> AdminUserOut:
+) -> ApiResponse[AdminUserOut]:
     """Update an admin user's name, password, or active status. Admin only."""
     svc = AdminUserService(db)
     admin = await svc.get_by_id(admin_id)
@@ -122,7 +123,7 @@ async def update_admin_user(
         password=body.password,
         is_active=body.is_active,
     )
-    return AdminUserOut.from_model(admin)
+    return ApiResponse(data=AdminUserOut.from_model(admin))
 
 
 @router.delete("/{admin_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import CurrentPrincipal, require_admin, require_doctor_or_admin
+from app.api.v1.schemas import ApiResponse
 from app.db.session import get_db
 from app.services.provider_service import ProviderService
 
@@ -23,6 +25,10 @@ class ProviderCreate(BaseModel):
     first_name: str
     last_name: str
     full_name: str | None = None
+    provider_clinic_id: str | None = None
+    division_id: str | None = None
+    clinic_system: str | None = None
+    clinic_name: str | None = None
     credentials: str | None = None
     specialty: str | None = None
     sub_specialty: str | None = None
@@ -36,6 +42,10 @@ class ProviderCreate(BaseModel):
 class ProviderUpdate(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
+    provider_clinic_id: str | None = None
+    division_id: str | None = None
+    clinic_system: str | None = None
+    clinic_name: str | None = None
     credentials: str | None = None
     specialty: str | None = None
     sub_specialty: str | None = None
@@ -50,6 +60,10 @@ class ProviderOut(BaseModel):
     full_name: str
     first_name: str | None = None
     last_name: str | None = None
+    provider_clinic_id: str | None = None
+    division_id: str | None = None
+    clinic_system: str | None = None
+    clinic_name: str | None = None
     credentials: str | None = None
     specialty: str | None = None
     sub_specialty: str | None = None
@@ -75,6 +89,10 @@ def _to_out(provider) -> ProviderOut:
         full_name=provider.full_name,
         first_name=provider.first_name,
         last_name=provider.last_name,
+        provider_clinic_id=provider.provider_clinic_id,
+        division_id=provider.division_id,
+        clinic_system=provider.clinic_system,
+        clinic_name=provider.clinic_name,
         credentials=provider.credentials,
         specialty=provider.specialty,
         sub_specialty=provider.sub_specialty,
@@ -88,65 +106,67 @@ def _to_out(provider) -> ProviderOut:
 # ---------------------------------------------------------------------------
 
 
-@router.get("", response_model=ProviderListResponse)
+@router.get("", response_model=ApiResponse[ProviderListResponse])
 async def list_providers(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     active_only: bool = Query(True),
     db: AsyncSession = Depends(get_db),
     _user: "CurrentPrincipal" = Depends(require_doctor_or_admin),
-):
+) -> ApiResponse[ProviderListResponse]:
     svc = ProviderService(db)
     items, total = await svc.list_providers(page=page, page_size=page_size, active_only=active_only)
-    return ProviderListResponse(
-        items=[_to_out(p) for p in items],
-        total=total,
-        page=page,
-        page_size=page_size,
+    return ApiResponse(
+        data=ProviderListResponse(
+            items=[_to_out(p) for p in items],
+            total=total,
+            page=page,
+            page_size=page_size,
+        )
     )
 
 
-@router.post("", response_model=ProviderOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ApiResponse[ProviderOut], status_code=status.HTTP_201_CREATED)
 async def create_provider(
     body: ProviderCreate,
     db: AsyncSession = Depends(get_db),
     _user: "CurrentPrincipal" = Depends(require_admin),
-):
+) -> ApiResponse[ProviderOut]:
     svc = ProviderService(db)
     provider = await svc.create(body.model_dump())
-    return _to_out(provider)
+    return ApiResponse(data=_to_out(provider))
 
 
-@router.get("/{provider_id}", response_model=ProviderOut)
+@router.get("/{provider_id}", response_model=ApiResponse[ProviderOut])
 async def get_provider(
-    provider_id: str,
+    provider_id: UUID,
     db: AsyncSession = Depends(get_db),
     _user: "CurrentPrincipal" = Depends(require_doctor_or_admin),
-):
+) -> ApiResponse[ProviderOut]:
     svc = ProviderService(db)
     provider = await svc.get(provider_id)
     if provider is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
-    return _to_out(provider)
+    return ApiResponse(data=_to_out(provider))
 
 
-@router.put("/{provider_id}", response_model=ProviderOut)
+@router.put("/{provider_id}", response_model=ApiResponse[ProviderOut])
 async def update_provider(
-    provider_id: str,
+    provider_id: UUID,
     body: ProviderUpdate,
     db: AsyncSession = Depends(get_db),
     _user: "CurrentPrincipal" = Depends(require_admin),
-):
+) -> ApiResponse[ProviderOut]:
     svc = ProviderService(db)
-    provider = await svc.update(provider_id, body.model_dump(exclude_none=True))
+    provider = await svc.update(provider_id, body.model_dump(exclude_unset=True))
     if provider is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
-    return _to_out(provider)
+    return ApiResponse(data=_to_out(provider))
 
 
 @router.delete("/{provider_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_provider(
-    provider_id: str,
+    provider_id: UUID,
     db: AsyncSession = Depends(get_db),
     _user: "CurrentPrincipal" = Depends(require_admin),
 ):

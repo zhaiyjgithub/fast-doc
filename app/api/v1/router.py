@@ -9,6 +9,7 @@ from app.api.v1.endpoints.patients import router as patients_router
 from app.api.v1.endpoints.providers import router as providers_router
 from app.api.v1.endpoints.rag import router as rag_router
 from app.api.v1.endpoints.report import router as report_router
+from app.api.v1.endpoints.users import router as users_router
 
 router = APIRouter()
 
@@ -24,4 +25,5 @@ router.include_router(emr_router)
 router.include_router(report_router)
 router.include_router(patients_router)
 router.include_router(providers_router)
+router.include_router(users_router)
 router.include_router(encounters_router)

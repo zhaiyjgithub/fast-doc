@@ -6,7 +6,20 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from app.api.v1.deps import CurrentPrincipal, get_current_user
 from app.graph.state import EMRGraphState
+from app.main import app
+
+
+async def _fake_current_user() -> CurrentPrincipal:
+    return CurrentPrincipal(id="doctor-1", email="doctor@example.com", user_type="doctor")
+
+
+@pytest.fixture(autouse=True)
+def _override_dependencies():
+    app.dependency_overrides[get_current_user] = _fake_current_user
+    yield
+    app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.fixture
