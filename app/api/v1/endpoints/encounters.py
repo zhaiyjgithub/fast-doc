@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,12 +31,13 @@ class EncounterCreate(BaseModel):
     provider_id: str | None = None
     encounter_time: datetime | None = None
     care_setting: str = "outpatient"
-    chief_complaint: str | None = None
+    chief_complaint: str = ""
 
 
 class TranscriptSubmit(BaseModel):
     transcript: str
     auto_generate_emr: bool = False
+    conversation_duration_seconds: int | None = Field(default=None, ge=0)
 
 
 class EncounterOut(BaseModel):
@@ -79,6 +80,7 @@ async def _background_generate_emr(
     patient_id: str,
     provider_id: str | None,
     transcript: str,
+    conversation_duration_seconds: int | None = None,
 ) -> None:
     async with AsyncSessionLocal() as bg_db:
         try:
@@ -89,6 +91,7 @@ async def _background_generate_emr(
                 provider_id=provider_id,
                 transcript=transcript,
                 request_id=f"bg-{encounter_id[:8]}",
+                conversation_duration_seconds=conversation_duration_seconds,
             )
             await bg_db.commit()
         except Exception:
@@ -177,7 +180,7 @@ async def create_encounter(
         provider_id=provider_uuid,
         encounter_time=body.encounter_time or datetime.now(timezone.utc),
         care_setting=body.care_setting,
-        chief_complaint=body.chief_complaint,
+        chief_complaint=body.chief_complaint.strip(),
         status="draft",
     )
     db.add(enc)
@@ -265,6 +268,7 @@ async def submit_transcript(
             patient_id=str(enc.patient_id),
             provider_id=str(enc.provider_id) if enc.provider_id else None,
             transcript=body.transcript,
+            conversation_duration_seconds=body.conversation_duration_seconds,
         )
     )
     return TranscriptResponse(

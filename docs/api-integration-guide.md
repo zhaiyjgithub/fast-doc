@@ -552,7 +552,7 @@ Authorization: Bearer <admin_access_token>
 
 ### 7.7 Parse EMR Demographics Text (LLM)
 
-Use this endpoint when the frontend captures a flattened demographics string from the EMR page and needs a structured patient payload.
+Use this endpoint when the frontend captures a flattened demographics string from the EMR page and needs the backend to resolve-or-create a real patient record.
 
 ```
 POST /v1/patients/parse-demographics
@@ -563,7 +563,11 @@ Content-Type: application/json
 **Request**:
 ```json
 {
-  "demographics_text": "Patient Demographics Name: Test, Sync-Diag DOB: 01/01/1980 Age: 46y Gender: Male Marital: Unknown Address: 123 Main St. New York NY 10031 Phone: Mobile(888-555-5555) Email: sync.diag@zocdoc.com Patient ID: 1002213835 Preferred Language: English CIR Number: Attending Physician: Registered Office Location: Office Visit Specialty: Internal Medicine Visit Type: Appointment"
+  "demographics_text": "Patient Demographics Name: Test, Sync-Diag DOB: 01/01/1980 Age: 46y Gender: Male Marital: Unknown Address: 123 Main St. New York NY 10031 Phone: Mobile(888-555-5555) Email: sync.diag@zocdoc.com Patient ID: 1002213835 Preferred Language: English CIR Number: Attending Physician: Registered Office Location: Office Visit Specialty: Internal Medicine Visit Type: Appointment",
+  "clinic_id": "3671",
+  "division_id": "16",
+  "clinic_system": "eClinicalWorks",
+  "clinic_name": "Downtown Pulmonary Clinic"
 }
 ```
 
@@ -571,28 +575,43 @@ Content-Type: application/json
 ```json
 {
   "data": {
-    "first_name": "Test",
-    "last_name": "Sync-Diag",
-    "date_of_birth": "1980-01-01",
-    "gender": "Male",
-    "primary_language": "English",
-    "clinic_patient_id": "1002213835",
-    "demographics": {
-      "phone": "888-555-5555",
-      "email": "sync.diag@zocdoc.com",
-      "address_line1": "123 Main St.",
-      "city": "New York",
-      "state": "NY",
-      "zip_code": "10031",
-      "country": null
+    "is_new": false,
+    "patient": {
+      "id": "42f432f7-8ec7-4a2f-9a2a-2f4dedf04b06",
+      "mrn": "P-AB12CD34",
+      "created_by": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "clinic_patient_id": "1002213835",
+      "clinic_id": "3671",
+      "division_id": "16",
+      "clinic_system": "eClinicalWorks",
+      "clinic_name": "Downtown Pulmonary Clinic",
+      "first_name": "Test",
+      "last_name": "Sync-Diag",
+      "date_of_birth": "1980-01-01",
+      "gender": "Male",
+      "primary_language": "English",
+      "is_active": true,
+      "demographics": {
+        "phone": "888-555-5555",
+        "email": "sync.diag@zocdoc.com",
+        "address_line1": "123 Main St.",
+        "city": "New York",
+        "state": "NY",
+        "zip_code": "10031",
+        "country": null
+      }
     }
   }
 }
 ```
 
 **Notes**:
-- `demographics_text` is required.
-- Output is normalized into the same wrapped response contract (`{ "data": ... }`) as other patient endpoints.
+- Required request fields: `demographics_text`, `clinic_id`, `division_id`, `clinic_system`.
+- Match keys for existing patient: `clinic_system + clinic_id + division_id + date_of_birth + email + phone`.
+- `phone` is matched after digits-only normalization; stored encrypted value is decrypted before compare.
+- `email` match is case-insensitive.
+- If matched, returns `is_new=false` with the existing full `patient` payload.
+- If no match, backend auto-creates patient and returns `is_new=true` with the new full `patient` payload.
 - If the text is empty, API returns `422`.
 - If the model output cannot be parsed into a valid JSON object, API returns `502`.
 
@@ -728,6 +747,8 @@ Content-Type: application/json
 ```
 
 > `care_setting` values: `"outpatient"` | `"inpatient"` | `"emergency"` | `"telehealth"`  
+> If omitted, `care_setting` defaults to `"outpatient"`.  
+> If omitted, `chief_complaint` defaults to `""` and is later re-summarized from transcript during EMR generation.  
 > `encounter_time` defaults to now if omitted.
 
 **Response 201**:
@@ -775,12 +796,14 @@ Content-Type: application/json
 ```json
 {
   "transcript": "Doctor: How are you feeling today?\nPatient: I've been having difficulty breathing, especially at night...",
-  "auto_generate_emr": true
+  "auto_generate_emr": true,
+  "conversation_duration_seconds": 185
 }
 ```
 
 > `auto_generate_emr: false` — saves transcript only, no AI processing.  
 > `auto_generate_emr: true` — saves transcript AND starts async EMR generation in background.  
+> `conversation_duration_seconds` is optional and must be `>= 0` when provided.  
 > Transcript can be in **any language** (Chinese, English, Spanish, etc.). The EMR output will always be in English.
 
 **Response 200** (save only):
@@ -864,6 +887,8 @@ Authorization: Bearer <token>
 
 Returns the complete clinical report including the EMR note text, all coding suggestions with evidence links, and context trace metadata.
 
+`emr.conversation_duration_seconds` is included when the latest EMR note has a stored conversation duration.
+
 ---
 
 ## 10. AI EMR Generation (Direct) — `/v1/emr`
@@ -885,10 +910,13 @@ Content-Type: application/json
   "provider_id": "6004a490-...",
   "transcript": "Doctor: Good morning. How are you feeling today?\nPatient: Not great, I've had a persistent cough...",
   "request_id": "req-optional-trace-id",
+  "conversation_duration_seconds": 185,
   "top_k_patient": 5,
   "top_k_guideline": 5
 }
 ```
+
+`conversation_duration_seconds` is optional and must be `>= 0` when provided.
 
 **Response 200**:
 ```json
@@ -1075,7 +1103,7 @@ No auth required.
    └── Admin login   → POST /v1/admin/auth/login → read `response.data`, then store tokens
 
 2. Patient Workflow (Doctor)
-   ├── Parse captured EMR demographics text → POST /v1/patients/parse-demographics → read `response.data`
+   ├── Parse captured EMR demographics text (+ clinic context) → POST /v1/patients/parse-demographics → read `response.data.is_new` and `response.data.patient`
    ├── Search patient → GET /v1/patients/search?name=... → read `response.data` ({ items, total, page, page_size })
    ├── View patient   → GET /v1/patients/{id} → read `response.data`
    ├── New encounter  → POST /v1/encounters (use provider_id from login)

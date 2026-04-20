@@ -9,7 +9,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.security import encrypt
+from app.core.security import decrypt, encrypt
 from app.models.patients import Patient, PatientDemographics
 
 
@@ -26,6 +26,13 @@ def _coerce_uuid(value: str | uuid.UUID | None) -> uuid.UUID | None:
         return uuid.UUID(str(value))
     except (TypeError, ValueError):
         return None
+
+
+def _normalize_phone_digits(value: str | None) -> str | None:
+    if not value:
+        return None
+    normalized = "".join(ch for ch in str(value) if ch.isdigit())
+    return normalized or None
 
 
 class PatientService:
@@ -209,3 +216,48 @@ class PatientService:
             .limit(page_size)
         )
         return list(rows.scalars().all()), total
+
+    async def find_existing_by_clinic_identity(
+        self,
+        *,
+        clinic_system: str | None,
+        clinic_id: str | None,
+        division_id: str | None,
+        date_of_birth: date | None,
+        email: str | None,
+        phone: str | None,
+    ) -> Patient | None:
+        normalized_email = email.strip().lower() if email else None
+        normalized_phone = _normalize_phone_digits(phone)
+        if not (
+            clinic_system
+            and clinic_id
+            and division_id
+            and date_of_birth
+            and normalized_email
+            and normalized_phone
+        ):
+            return None
+
+        stmt = (
+            select(Patient)
+            .join(PatientDemographics, PatientDemographics.patient_id == Patient.id)
+            .options(selectinload(Patient.demographics))
+            .where(Patient.is_active == True)  # noqa: E712
+            .where(Patient.clinic_system == clinic_system)
+            .where(Patient.clinic_id == clinic_id)
+            .where(Patient.division_id == division_id)
+            .where(Patient.date_of_birth == date_of_birth)
+            .where(func.lower(func.trim(PatientDemographics.email)) == normalized_email)
+        )
+        result = await self.db.execute(stmt)
+        for patient in result.scalars().all():
+            if not patient.demographics or not patient.demographics.phone:
+                continue
+            try:
+                decrypted_phone = decrypt(patient.demographics.phone)
+            except Exception:
+                continue
+            if _normalize_phone_digits(decrypted_phone) == normalized_phone:
+                return patient
+        return None

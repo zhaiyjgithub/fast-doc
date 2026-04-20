@@ -8,7 +8,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import CurrentPrincipal, require_admin, require_doctor_or_admin
@@ -104,7 +104,24 @@ class PatientListResponse(BaseModel):
 
 
 class ParseDemographicsIn(BaseModel):
-    demographics_text: str
+    demographics_text: str = Field(min_length=1)
+    clinic_id: str
+    division_id: str
+    clinic_system: str
+    clinic_name: str | None = None
+
+    @field_validator("clinic_id", "division_id", "clinic_system")
+    @classmethod
+    def _validate_non_empty(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("must be a non-empty string")
+        return cleaned
+
+
+class ParseDemographicsResultOut(BaseModel):
+    is_new: bool
+    patient: PatientOut
 
 
 class ParsedPatientDemographicsOut(BaseModel):
@@ -320,12 +337,12 @@ async def create_patient(
     return ApiResponse(data=_build_patient_out(patient))
 
 
-@router.post("/parse-demographics", response_model=ApiResponse[ParsedPatientDemographicsOut])
+@router.post("/parse-demographics", response_model=ApiResponse[ParseDemographicsResultOut])
 async def parse_demographics(
     body: ParseDemographicsIn,
     db: AsyncSession = Depends(get_db),
     _user: "CurrentPrincipal" = Depends(require_doctor_or_admin),
-) -> ApiResponse[ParsedPatientDemographicsOut]:
+) -> ApiResponse[ParseDemographicsResultOut]:
     source_text = body.demographics_text.strip()
     if not source_text:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="demographics_text is required")
@@ -347,13 +364,54 @@ async def parse_demographics(
         db=db,
         node_name="parse_patient_demographics",
     )
-    parsed = _parse_llm_json_object(raw)
-    if not parsed:
+    parsed_payload = _parse_llm_json_object(raw)
+    if not parsed_payload:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="LLM returned unparseable demographics payload",
         )
-    return ApiResponse(data=_coerce_parsed_patient_payload(parsed))
+    parsed = _coerce_parsed_patient_payload(parsed_payload)
+
+    svc = PatientService(db)
+    matched_patient = await svc.find_existing_by_clinic_identity(
+        clinic_system=body.clinic_system,
+        clinic_id=body.clinic_id,
+        division_id=body.division_id,
+        date_of_birth=parsed.date_of_birth,
+        email=parsed.demographics.email if parsed.demographics else None,
+        phone=parsed.demographics.phone if parsed.demographics else None,
+    )
+    if matched_patient is not None:
+        return ApiResponse(
+            data=ParseDemographicsResultOut(
+                is_new=False,
+                patient=_build_patient_out(matched_patient),
+            )
+        )
+
+    create_payload = {
+        "first_name": parsed.first_name,
+        "last_name": parsed.last_name,
+        "date_of_birth": parsed.date_of_birth,
+        "gender": parsed.gender,
+        "primary_language": parsed.primary_language or "en-US",
+        "clinic_patient_id": parsed.clinic_patient_id,
+        "clinic_id": body.clinic_id,
+        "division_id": body.division_id,
+        "clinic_system": body.clinic_system,
+        "clinic_name": body.clinic_name,
+        "created_by": None if _user.user_type == "admin" else _user.id,
+    }
+    if parsed.demographics:
+        create_payload["demographics"] = parsed.demographics.model_dump()
+
+    created_patient = await svc.create(create_payload)
+    return ApiResponse(
+        data=ParseDemographicsResultOut(
+            is_new=True,
+            patient=_build_patient_out(created_patient),
+        )
+    )
 
 
 @router.get("/{patient_id}", response_model=ApiResponse[PatientOut])

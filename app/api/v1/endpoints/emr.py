@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import CurrentPrincipal, get_current_user
@@ -24,6 +24,7 @@ class EMRGenerateRequest(BaseModel):
     request_id: str | None = None
     top_k_patient: int = 5
     top_k_guideline: int = 5
+    conversation_duration_seconds: int | None = Field(default=None, ge=0)
 
 
 class SOAPNote(BaseModel):
@@ -74,6 +75,7 @@ async def generate_emr(
             request_id=body.request_id,
             top_k_patient=body.top_k_patient,
             top_k_guideline=body.top_k_guideline,
+            conversation_duration_seconds=body.conversation_duration_seconds,
         )
     except Exception as exc:
         raise HTTPException(

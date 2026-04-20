@@ -31,7 +31,6 @@ class CodeSuggestionItem(BaseModel):
     confidence: float | None
     rationale: str | None
     status: str
-    page: int | None = None
     evidence: list[EvidenceItem] = []
 
 
@@ -48,6 +47,7 @@ class EMRSummary(BaseModel):
     note_text: str | None
     is_final: bool
     request_id: str | None
+    conversation_duration_seconds: int | None = None
 
 
 class EncounterReport(BaseModel):
@@ -116,7 +116,6 @@ async def get_encounter_report(
             confidence=float(s.confidence) if s.confidence is not None else None,
             rationale=s.rationale,
             status=s.status,
-            page=s.page,
             evidence=ev_items,
         )
         if s.code_type == "ICD":
@@ -136,6 +135,7 @@ async def get_encounter_report(
         note_text=note.note_text,
         is_final=note.is_final,
         request_id=note.request_id,
+        conversation_duration_seconds=note.conversation_duration_seconds,
     )
 
     return EncounterReport(

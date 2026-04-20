@@ -59,7 +59,7 @@ async def test_emr_generate_success(async_client, mock_emr_state):
             "app.api.v1.endpoints.emr.EMRService.generate",
             new_callable=AsyncMock,
             return_value=mock_emr_state,
-        ),
+        ) as generate_mock,
     ):
         response = await async_client.post(
             "/v1/emr/generate",
@@ -68,6 +68,7 @@ async def test_emr_generate_success(async_client, mock_emr_state):
                 "patient_id": "00000000-0000-0000-0000-000000000001",
                 "transcript": "Patient has worsening dyspnea for 3 days.",
                 "request_id": "req-api-001",
+                "conversation_duration_seconds": 185,
             },
         )
 
@@ -76,6 +77,7 @@ async def test_emr_generate_success(async_client, mock_emr_state):
     assert data["encounter_id"] == "enc-api-001"
     assert data["soap_note"]["assessment"] == "COPD exacerbation"
     assert "ASSESSMENT" in data["emr_text"]
+    assert generate_mock.await_args.kwargs["conversation_duration_seconds"] == 185
 
 
 async def test_emr_generate_missing_required_fields(async_client):

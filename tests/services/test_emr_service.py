@@ -2,6 +2,7 @@
 
 import json
 import uuid
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -105,9 +106,35 @@ def test_render_emr():
 
 async def test_emr_generate_with_mocked_llm(db_session):
     """End-to-end EMR generation with all external calls mocked."""
+    from datetime import datetime, timezone
+
+    from app.models.clinical import Encounter
+    from app.models.patients import Patient
     from app.services.markdown_ingestion import MarkdownIngestionService
 
     patient_uuid = uuid.uuid4()
+    encounter_uuid = uuid.uuid4()
+
+    db_session.add(
+        Patient(
+            id=patient_uuid,
+            mrn="P-EMRTEST1",
+            first_name="Test",
+            last_name="Patient",
+            primary_language="en-US",
+        )
+    )
+    db_session.add(
+        Encounter(
+            id=encounter_uuid,
+            patient_id=patient_uuid,
+            encounter_time=datetime.now(timezone.utc),
+            care_setting="outpatient",
+            chief_complaint="",
+            status="draft",
+        )
+    )
+    await db_session.flush()
 
     # Seed patient data
     with patch(
@@ -144,12 +171,12 @@ async def test_emr_generate_with_mocked_llm(db_session):
         patch(
             "app.services.emr_service.llm_adapter.chat",
             new_callable=AsyncMock,
-            return_value=soap_response,
+            side_effect=[soap_response, "Shortness of breath"],
         ),
     ):
         svc = EMRService(db_session)
         state = await svc.generate(
-            encounter_id="enc-test-001",
+            encounter_id=str(encounter_uuid),
             patient_id=str(patient_uuid),
             transcript="Patient has increased dyspnea for 3 days and productive cough.",
             request_id="emr-test-001",
@@ -157,4 +184,48 @@ async def test_emr_generate_with_mocked_llm(db_session):
 
     assert state["soap_note"]["assessment"] == "COPD exacerbation, moderate"
     assert "ASSESSMENT" in state["emr_text"]
-    assert state["encounter_id"] == "enc-test-001"
+    assert state["encounter_id"] == str(encounter_uuid)
+
+
+async def test_upsert_chief_complaint_updates_encounter_from_llm_summary():
+    encounter = SimpleNamespace(chief_complaint="")
+    fake_db = SimpleNamespace(
+        execute=AsyncMock(
+            return_value=SimpleNamespace(
+                scalars=lambda: SimpleNamespace(first=lambda: encounter)
+            )
+        ),
+        flush=AsyncMock(),
+    )
+    svc = EMRService(fake_db)
+
+    with patch(
+        "app.services.emr_service.llm_adapter.chat",
+        new_callable=AsyncMock,
+        return_value='"Shortness of breath"',
+    ):
+        await svc._upsert_encounter_chief_complaint_from_transcript(
+            encounter_id=str(uuid.uuid4()),
+            transcript="Patient reports shortness of breath for 3 days.",
+            request_id="req-cc-001",
+        )
+
+    assert encounter.chief_complaint == "Shortness of breath"
+    fake_db.flush.assert_awaited_once()
+
+
+async def test_summarize_chief_complaint_falls_back_to_transcript_when_llm_fails():
+    fake_db = SimpleNamespace(execute=AsyncMock(), flush=AsyncMock())
+    svc = EMRService(fake_db)
+
+    with patch(
+        "app.services.emr_service.llm_adapter.chat",
+        new_callable=AsyncMock,
+        side_effect=RuntimeError("llm unavailable"),
+    ):
+        summary = await svc._summarize_chief_complaint_from_transcript(
+            transcript="Persistent cough and wheezing with night symptoms.",
+            request_id="req-cc-002",
+        )
+
+    assert summary == "Persistent cough and wheezing with night symptoms"

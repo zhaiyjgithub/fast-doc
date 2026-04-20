@@ -1,5 +1,7 @@
 """API tests for parsing flattened EMR demographics text via LLM."""
 
+from datetime import date
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -44,7 +46,34 @@ async def setup_test_db():
     yield
 
 
-async def test_parse_demographics_returns_structured_patient(async_client):
+def _make_patient(*, patient_id: str, mrn: str, first_name: str, last_name: str):
+    return SimpleNamespace(
+        id=patient_id,
+        mrn=mrn,
+        created_by=None,
+        clinic_patient_id="1002213835",
+        clinic_id="clinic-123",
+        division_id="division-456",
+        clinic_system="athena",
+        clinic_name="Demo Clinic",
+        first_name=first_name,
+        last_name=last_name,
+        date_of_birth=date(1980, 1, 1),
+        gender="Male",
+        primary_language="English",
+        is_active=True,
+        demographics=SimpleNamespace(
+            phone="888-555-5555",
+            email="sync.diag@zocdoc.com",
+            address_line1="123 Main St.",
+            city="New York",
+            state="NY",
+            zip_code="10031",
+        ),
+    )
+
+
+async def test_parse_demographics_matches_existing_patient(async_client):
     llm_json = """
 {
   "first_name": "Test",
@@ -63,27 +92,142 @@ async def test_parse_demographics_returns_structured_patient(async_client):
   }
 }
 """
+    existing_patient = _make_patient(
+        patient_id="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+        mrn="P-EXIST01",
+        first_name="Test",
+        last_name="Sync-Diag",
+    )
+    with (
+        patch(
+            "app.api.v1.endpoints.patients.llm_adapter.chat",
+            new_callable=AsyncMock,
+            return_value=llm_json,
+        ),
+        patch(
+            "app.services.patient_service.PatientService.find_existing_by_clinic_identity",
+            new_callable=AsyncMock,
+            return_value=existing_patient,
+        ) as match_mock,
+        patch(
+            "app.services.patient_service.PatientService.create",
+            new_callable=AsyncMock,
+        ) as create_mock,
+    ):
+        response = await async_client.post(
+            "/v1/patients/parse-demographics",
+            json={
+                "demographics_text": RAW_DEMOGRAPHICS_TEXT,
+                "clinic_id": "clinic-123",
+                "division_id": "division-456",
+                "clinic_system": "athena",
+                "clinic_name": "Demo Clinic",
+            },
+        )
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["is_new"] is False
+    assert body["patient"]["id"] == "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001"
+    assert body["patient"]["mrn"] == "P-EXIST01"
+    assert body["patient"]["first_name"] == "Test"
+    assert body["patient"]["last_name"] == "Sync-Diag"
+    assert body["patient"]["clinic_system"] == "athena"
+    assert body["patient"]["clinic_id"] == "clinic-123"
+    assert body["patient"]["division_id"] == "division-456"
+    assert body["patient"]["demographics"]["phone"] == "888-555-5555"
+    match_mock.assert_awaited_once()
+    assert match_mock.await_args.kwargs["clinic_system"] == "athena"
+    assert match_mock.await_args.kwargs["clinic_id"] == "clinic-123"
+    assert match_mock.await_args.kwargs["division_id"] == "division-456"
+    assert str(match_mock.await_args.kwargs["date_of_birth"]) == "1980-01-01"
+    assert match_mock.await_args.kwargs["email"] == "sync.diag@zocdoc.com"
+    assert match_mock.await_args.kwargs["phone"] == "888-555-5555"
+    create_mock.assert_not_awaited()
+
+
+async def test_parse_demographics_creates_new_patient_when_no_match(async_client):
+    llm_json = """
+{
+  "first_name": "Test",
+  "last_name": "Sync-Diag",
+  "date_of_birth": "1980-01-01",
+  "gender": "Male",
+  "primary_language": "English",
+  "clinic_patient_id": "1002213835",
+  "demographics": {
+    "phone": "888-555-5555",
+    "email": "sync.diag@zocdoc.com",
+    "address_line1": "123 Main St.",
+    "city": "New York",
+    "state": "NY",
+    "zip_code": "10031"
+  }
+}
+"""
+    created_patient = _make_patient(
+        patient_id="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0002",
+        mrn="P-NEW001",
+        first_name="Test",
+        last_name="Sync-Diag",
+    )
+    with (
+        patch(
+            "app.api.v1.endpoints.patients.llm_adapter.chat",
+            new_callable=AsyncMock,
+            return_value=llm_json,
+        ),
+        patch(
+            "app.services.patient_service.PatientService.find_existing_by_clinic_identity",
+            new_callable=AsyncMock,
+            return_value=None,
+        ) as match_mock,
+        patch(
+            "app.services.patient_service.PatientService.create",
+            new_callable=AsyncMock,
+            return_value=created_patient,
+        ) as create_mock,
+    ):
+        response = await async_client.post(
+            "/v1/patients/parse-demographics",
+            json={
+                "demographics_text": RAW_DEMOGRAPHICS_TEXT,
+                "clinic_id": "clinic-123",
+                "division_id": "division-456",
+                "clinic_system": "athena",
+            },
+        )
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["is_new"] is True
+    assert body["patient"]["id"] == "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0002"
+    assert body["patient"]["mrn"] == "P-NEW001"
+    assert body["patient"]["first_name"] == "Test"
+    assert body["patient"]["last_name"] == "Sync-Diag"
+    assert body["patient"]["clinic_system"] == "athena"
+    assert body["patient"]["clinic_id"] == "clinic-123"
+    assert body["patient"]["division_id"] == "division-456"
+    match_mock.assert_awaited_once()
+    create_mock.assert_awaited_once()
+    create_payload = create_mock.await_args.args[0]
+    assert create_payload["clinic_system"] == "athena"
+    assert create_payload["clinic_id"] == "clinic-123"
+    assert create_payload["division_id"] == "division-456"
+    assert create_payload["clinic_patient_id"] == "1002213835"
+    assert create_payload["demographics"]["email"] == "sync.diag@zocdoc.com"
+    assert create_payload["demographics"]["phone"] == "888-555-5555"
+
+
+async def test_parse_demographics_requires_clinic_context(async_client):
     with patch(
         "app.api.v1.endpoints.patients.llm_adapter.chat",
         new_callable=AsyncMock,
-        return_value=llm_json,
+        return_value="{}",
     ):
         response = await async_client.post(
             "/v1/patients/parse-demographics",
             json={"demographics_text": RAW_DEMOGRAPHICS_TEXT},
         )
 
-    assert response.status_code == 200
-    body = response.json()["data"]
-    assert body["first_name"] == "Test"
-    assert body["last_name"] == "Sync-Diag"
-    assert body["date_of_birth"] == "1980-01-01"
-    assert body["gender"] == "Male"
-    assert body["primary_language"] == "English"
-    assert body["clinic_patient_id"] == "1002213835"
-    assert body["demographics"]["phone"] == "888-555-5555"
-    assert body["demographics"]["email"] == "sync.diag@zocdoc.com"
-    assert body["demographics"]["address_line1"] == "123 Main St."
-    assert body["demographics"]["city"] == "New York"
-    assert body["demographics"]["state"] == "NY"
-    assert body["demographics"]["zip_code"] == "10031"
+    assert response.status_code == 422
