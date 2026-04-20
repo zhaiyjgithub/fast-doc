@@ -1,8 +1,9 @@
 # MediCare AI — Frontend API Integration Guide
 
-> **Version**: v1.0  
-> **Last Updated**: 2026-04-10  
-> **Interactive Docs** (auto-generated, requires server running): http://localhost:8000/docs
+> **Version**: v1.1  
+> **Last Updated**: 2026-04-19  
+> **Interactive Docs** (auto-generated, requires server running): http://localhost:8000/docs  
+> **Response contract (wrapped routes)**: [`api-response-reference.md`](./api-response-reference.md)
 
 ---
 
@@ -14,6 +15,18 @@
 | All v1 APIs | `http://localhost:8000/v1` |
 
 All request/response bodies use `application/json` unless marked as multipart.
+
+### 1.1 JSON success envelope (`data`)
+
+For **auth**, **admin users**, **doctor `users` accounts**, **patients**, and **providers**, successful JSON responses use a single wrapper:
+
+```json
+{ "data": <payload> }
+```
+
+Clients (including the browser extension) should read entities and tokens from **`response.data`**, not from the root object. **`DELETE`** success is still **`204 No Content`** (empty body). Errors keep FastAPI’s root-level **`{ "detail": ... }`** (no `data` field).
+
+**Not** wrapped in `data` (payload at the JSON root): **`/v1/encounters`**, **`/v1/emr`**, **`/v1/rag`**, **`/v1/report`**, and **`GET /health`** — see those sections below.
 
 ---
 
@@ -57,6 +70,7 @@ When the access token expires, exchange the refresh token for a new pair.
 | Provider auth (`/v1/auth/*`) | ✅ | ❌ |
 | Admin auth (`/v1/admin/auth/*`) | ❌ | ✅ |
 | Admin user CRUD (`/v1/admin/users`) | ❌ | ✅ |
+| Doctor login accounts (`/v1/users`) | ❌ | ✅ |
 | Patients (read/write) | ✅ | ✅ |
 | Patients (delete) | ❌ | ✅ |
 | Providers (read) | ✅ | ✅ |
@@ -85,12 +99,14 @@ username=schen@emr.local&password=Doctor@2026!
 **Response 200**:
 ```json
 {
-  "access_token": "eyJhbGci...",
-  "refresh_token": "eyJhbGci...",
-  "token_type": "bearer",
-  "user_type": "doctor",
-  "user_id": "db807f15-b67e-43ca-9048-8932381f7e4e",
-  "provider_id": "6004a490-6323-4201-85b7-8b9a7bda52dd"
+  "data": {
+    "access_token": "eyJhbGci...",
+    "refresh_token": "eyJhbGci...",
+    "token_type": "bearer",
+    "user_type": "doctor",
+    "user_id": "db807f15-b67e-43ca-9048-8932381f7e4e",
+    "provider_id": "6004a490-6323-4201-85b7-8b9a7bda52dd"
+  }
 }
 ```
 
@@ -113,7 +129,7 @@ Content-Type: application/json
 { "refresh_token": "eyJhbGci..." }
 ```
 
-**Response 200**: Same shape as `/v1/auth/login`.
+**Response 200**: Same shape as `/v1/auth/login` (object under **`data`**).
 
 ---
 
@@ -127,10 +143,12 @@ Authorization: Bearer <access_token>
 **Response 200**:
 ```json
 {
-  "user_id": "db807f15-b67e-43ca-9048-8932381f7e4e",
-  "email": "schen@emr.local",
-  "user_type": "doctor",
-  "provider_id": "6004a490-6323-4201-85b7-8b9a7bda52dd"
+  "data": {
+    "user_id": "db807f15-b67e-43ca-9048-8932381f7e4e",
+    "email": "schen@emr.local",
+    "user_type": "doctor",
+    "provider_id": "6004a490-6323-4201-85b7-8b9a7bda52dd"
+  }
 }
 ```
 
@@ -145,7 +163,14 @@ POST /v1/auth/logout
 Authorization: Bearer <access_token>
 ```
 
-**Response 200**: `{ "message": "Logged out successfully" }`
+**Response 200**:
+```json
+{
+  "data": {
+    "message": "Logged out successfully"
+  }
+}
+```
 
 > Stateless — client must discard both tokens.
 
@@ -170,11 +195,13 @@ username=admin@emr.local&password=Admin@2026!
 **Response 200**:
 ```json
 {
-  "access_token": "eyJhbGci...",
-  "refresh_token": "eyJhbGci...",
-  "token_type": "bearer",
-  "user_type": "admin",
-  "user_id": "ead2ce02-4dde-4b12-961e-3225ce25a23a"
+  "data": {
+    "access_token": "eyJhbGci...",
+    "refresh_token": "eyJhbGci...",
+    "token_type": "bearer",
+    "user_type": "admin",
+    "user_id": "ead2ce02-4dde-4b12-961e-3225ce25a23a"
+  }
 }
 ```
 
@@ -197,10 +224,12 @@ Authorization: Bearer <admin_access_token>
 **Response 200**:
 ```json
 {
-  "user_id": "ead2ce02-4dde-4b12-961e-3225ce25a23a",
-  "email": "admin@emr.local",
-  "full_name": "System Administrator",
-  "user_type": "admin"
+  "data": {
+    "user_id": "ead2ce02-4dde-4b12-961e-3225ce25a23a",
+    "email": "admin@emr.local",
+    "full_name": "System Administrator",
+    "user_type": "admin"
+  }
 }
 ```
 
@@ -210,6 +239,8 @@ Authorization: Bearer <admin_access_token>
 POST /v1/admin/auth/logout
 Authorization: Bearer <admin_access_token>
 ```
+
+**Response 200**: Same as provider logout — `{ "data": { "message": "Logged out successfully" } }`.
 
 ---
 
@@ -226,16 +257,18 @@ Authorization: Bearer <admin_access_token>
 
 **Response 200**:
 ```json
-[
-  {
-    "id": "ead2ce02-4dde-4b12-961e-3225ce25a23a",
-    "email": "admin@emr.local",
-    "full_name": "System Administrator",
-    "is_active": true,
-    "created_at": "2026-04-10T02:05:32.383160+00:00",
-    "updated_at": "2026-04-10T02:05:32.383160+00:00"
-  }
-]
+{
+  "data": [
+    {
+      "id": "ead2ce02-4dde-4b12-961e-3225ce25a23a",
+      "email": "admin@emr.local",
+      "full_name": "System Administrator",
+      "is_active": true,
+      "created_at": "2026-04-10T02:05:32.383160+00:00",
+      "updated_at": "2026-04-10T02:05:32.383160+00:00"
+    }
+  ]
+}
 ```
 
 ### 6.2 Create Admin User
@@ -255,7 +288,7 @@ Content-Type: application/json
 }
 ```
 
-**Response 201**: Same shape as list item above.  
+**Response 201**: Same shape as one element of **`data`** in the list response (a single admin user object inside **`{ "data": { ... } }`**).  
 **Error 409**: Email already registered.
 
 ### 6.3 Get Admin User
@@ -265,7 +298,7 @@ GET /v1/admin/users/{admin_id}
 Authorization: Bearer <admin_access_token>
 ```
 
-**Response 200**: Single admin user object.
+**Response 200**: `{ "data": { ... } }` — one admin user object (same fields as list items).
 
 ### 6.4 Update Admin User
 
@@ -284,7 +317,7 @@ Content-Type: application/json
 }
 ```
 
-**Response 200**: Updated admin user object.
+**Response 200**: `{ "data": { ... } }` — updated admin user object.
 
 ### 6.5 Delete (Soft) Admin User
 
@@ -295,6 +328,69 @@ Authorization: Bearer <admin_access_token>
 
 **Response 204**: No content.  
 **Error 400**: Cannot delete your own account.
+
+---
+
+## 6b. Doctor login accounts (Users) — `/v1/users`
+
+> CRUD for **`users`** rows (email/password used with **`POST /v1/auth/login`**). Requires **admin** token. Responses use the **`{ "data": ... }`** envelope.
+
+### 6b.1 List users
+
+```
+GET /v1/users
+Authorization: Bearer <admin_access_token>
+```
+
+**Response 200**:
+```json
+{
+  "data": [
+    {
+      "id": "db807f15-b67e-43ca-9048-8932381f7e4e",
+      "email": "schen@emr.local",
+      "role": "doctor",
+      "provider_id": "6004a490-6323-4201-85b7-8b9a7bda52dd",
+      "is_active": true,
+      "created_at": "2026-04-10T02:05:32.383160+00:00",
+      "updated_at": "2026-04-10T02:05:32.383160+00:00"
+    }
+  ]
+}
+```
+
+### 6b.2 Create user
+
+```
+POST /v1/users
+Authorization: Bearer <admin_access_token>
+Content-Type: application/json
+```
+
+**Request**:
+```json
+{
+  "email": "newdoctor@emr.local",
+  "password": "Doctor@2026!",
+  "provider_id": "6004a490-6323-4201-85b7-8b9a7bda52dd",
+  "is_active": true
+}
+```
+
+**Response 201**: `{ "data": { ... } }` — one `UserOut` object.  
+**Error 409**: Email already registered.
+
+### 6b.3 Get / update / delete user
+
+```
+GET    /v1/users/{user_id}
+PUT    /v1/users/{user_id}
+DELETE /v1/users/{user_id}
+Authorization: Bearer <admin_access_token>
+```
+
+**Response 200** (GET/PUT): `{ "data": { ... } }`.  
+**Response 204** (DELETE): No content.
 
 ---
 
@@ -310,32 +406,42 @@ Authorization: Bearer <token>
 **Response 200**:
 ```json
 {
-  "items": [
-    {
-      "id": "a1b2c3d4-...",
-      "mrn": "MRN-000001",
-      "first_name": "John",
-      "last_name": "Doe",
-      "date_of_birth": "1985-03-15",
-      "gender": "male",
-      "primary_language": "en-US",
-      "is_active": true,
-      "demographics": {
-        "phone": "555-1234",
-        "email": "john.doe@email.com",
-        "address_line1": "123 Main St",
-        "city": "San Francisco",
-        "state": "CA",
-        "zip_code": "94105",
-        "country": null
+  "data": {
+    "items": [
+      {
+        "id": "a1b2c3d4-...",
+        "mrn": "MRN-000001",
+        "created_by": "db807f15-b67e-43ca-9048-8932381f7e4e",
+        "clinic_patient_id": null,
+        "clinic_id": null,
+        "division_id": null,
+        "clinic_system": null,
+        "clinic_name": null,
+        "first_name": "John",
+        "last_name": "Doe",
+        "date_of_birth": "1985-03-15",
+        "gender": "male",
+        "primary_language": "en-US",
+        "is_active": true,
+        "demographics": {
+          "phone": "555-1234",
+          "email": "john.doe@email.com",
+          "address_line1": "123 Main St",
+          "city": "San Francisco",
+          "state": "CA",
+          "zip_code": "94105",
+          "country": null
+        }
       }
-    }
-  ],
-  "total": 42,
-  "page": 1,
-  "page_size": 20
+    ],
+    "total": 42,
+    "page": 1,
+    "page_size": 20
+  }
 }
 ```
+
+> Optional EMR linkage fields (`created_by`, `clinic_patient_id`, `clinic_id`, `division_id`, `clinic_system`, `clinic_name`) appear on every patient payload when present.
 
 ### 7.2 Smart Search
 
@@ -354,10 +460,14 @@ Authorization: Bearer <token>
 | `mrn` | string | Exact or partial MRN match |
 | `patient_id` | string | Exact UUID match |
 | `language` | string | Primary language code (e.g. `zh-CN`) |
+| `clinic_patient_id` | string | External clinic patient identifier |
+| `clinic_id` | string | Clinic / site identifier (e.g. eClinic ID) |
+| `division_id` | string | Division / department / business unit ID |
+| `clinic_system` | string | EMR family label (e.g. `iClinic`, `eClinic`, `custom`) |
 | `page` | int | Page number (default 1) |
 | `page_size` | int | Items per page (default 20, max 100) |
 
-**Response 200**: Same shape as List Patients.
+**Response 200**: Same shape as List Patients (`{ "data": { "items", "total", "page", "page_size" } }`).
 
 **Examples**:
 ```
@@ -365,6 +475,7 @@ GET /v1/patients/search?name=Chen
 GET /v1/patients/search?mrn=MRN-000002
 GET /v1/patients/search?dob=1990-05-20
 GET /v1/patients/search?q=john&language=en-US
+GET /v1/patients/search?clinic_id=3671&clinic_system=eClinic
 ```
 
 ### 7.3 Create Patient
@@ -398,7 +509,7 @@ Content-Type: application/json
 > `mrn` is auto-generated if omitted.  
 > `phone` is encrypted at rest (AES-256-GCM) and decrypted on read.
 
-**Response 201**: Single `PatientOut` object.
+**Response 201**: `{ "data": <PatientOut> }` — same fields as one element of `data.items` in the list response.
 
 ### 7.4 Get Patient
 
@@ -407,7 +518,7 @@ GET /v1/patients/{patient_id}
 Authorization: Bearer <token>
 ```
 
-**Response 200**: Single `PatientOut` object.  
+**Response 200**: `{ "data": <PatientOut> }`.  
 **Error 404**: Patient not found.
 
 ### 7.5 Update Patient
@@ -428,7 +539,7 @@ Content-Type: application/json
 }
 ```
 
-**Response 200**: Updated `PatientOut`.
+**Response 200**: `{ "data": <PatientOut> }` — updated patient.
 
 ### 7.6 Delete Patient (Admin only)
 
@@ -453,24 +564,32 @@ Authorization: Bearer <token>
 **Response 200**:
 ```json
 {
-  "items": [
-    {
-      "id": "6004a490-6323-4201-85b7-8b9a7bda52dd",
-      "full_name": "Dr. Sarah Chen",
-      "first_name": "Sarah",
-      "last_name": "Chen",
-      "credentials": "MD",
-      "specialty": "Pulmonology",
-      "sub_specialty": "COPD",
-      "prompt_style": "detailed",
-      "is_active": true
-    }
-  ],
-  "total": 2,
-  "page": 1,
-  "page_size": 20
+  "data": {
+    "items": [
+      {
+        "id": "6004a490-6323-4201-85b7-8b9a7bda52dd",
+        "full_name": "Dr. Sarah Chen",
+        "first_name": "Sarah",
+        "last_name": "Chen",
+        "provider_clinic_id": null,
+        "division_id": null,
+        "clinic_system": null,
+        "clinic_name": null,
+        "credentials": "MD",
+        "specialty": "Pulmonology",
+        "sub_specialty": "COPD",
+        "prompt_style": "detailed",
+        "is_active": true
+      }
+    ],
+    "total": 2,
+    "page": 1,
+    "page_size": 20
+  }
 }
 ```
+
+> Optional clinic linkage: `provider_clinic_id`, `division_id`, `clinic_system`, `clinic_name`.
 
 ### 8.2 Get Provider
 
@@ -479,7 +598,7 @@ GET /v1/providers/{provider_id}
 Authorization: Bearer <token>
 ```
 
-**Response 200**: Single `ProviderOut` object.
+**Response 200**: `{ "data": <ProviderOut> }`.
 
 ### 8.3 Create Provider (Admin only)
 
@@ -506,7 +625,7 @@ Content-Type: application/json
 > If `email` + `initial_password` are provided, a linked login account is created automatically.  
 > `prompt_style`: `"standard"` | `"detailed"` | `"brief"`
 
-**Response 201**: Single `ProviderOut`.
+**Response 201**: `{ "data": <ProviderOut> }`.
 
 ### 8.4 Update Provider (Admin only)
 
@@ -525,7 +644,7 @@ Content-Type: application/json
 }
 ```
 
-**Response 200**: Updated `ProviderOut`.
+**Response 200**: `{ "data": <ProviderOut> }`.
 
 ### 8.5 Delete Provider (Admin only)
 
@@ -539,6 +658,9 @@ Authorization: Bearer <admin_access_token>
 ---
 
 ## 9. Encounters & Transcripts
+
+> **Note:** From this section onward, JSON responses are returned **at the root** (no `{ "data": ... }` wrapper), unless an individual endpoint is updated later. The extension should branch on route prefix: wrapped routes under **auth / admin-auth / admin/users / users / patients / providers** vs. raw payloads here and in **EMR**, **RAG**, and **report** APIs.
+
 
 ### 9.1 Create Encounter
 
@@ -701,7 +823,7 @@ Returns the complete clinical report including the EMR note text, all coding sug
 ## 10. AI EMR Generation (Direct) — `/v1/emr`
 
 > Use this for **synchronous** EMR generation (waits for the result).  
-> For async generation triggered by transcript, use § 9.4 instead.
+> For async generation triggered by transcript, use **section 9.4** instead.
 
 ```
 POST /v1/emr/generate
@@ -903,26 +1025,27 @@ No auth required.
 
 ```
 1. Login Screen
-   ├── Provider login → POST /v1/auth/login  → store { access_token, refresh_token, provider_id }
-   └── Admin login   → POST /v1/admin/auth/login → store { access_token, refresh_token }
+   ├── Provider login → POST /v1/auth/login  → read `response.data`, then store access_token, refresh_token, provider_id
+   └── Admin login   → POST /v1/admin/auth/login → read `response.data`, then store tokens
 
 2. Patient Workflow (Doctor)
-   ├── Search patient → GET /v1/patients/search?name=...
-   ├── View patient   → GET /v1/patients/{id}
+   ├── Search patient → GET /v1/patients/search?name=... → read `response.data` ({ items, total, page, page_size })
+   ├── View patient   → GET /v1/patients/{id} → read `response.data`
    ├── New encounter  → POST /v1/encounters (use provider_id from login)
    ├── Submit transcript → PUT /v1/encounters/{id}/transcript { auto_generate_emr: true }
    └── Poll EMR status  → GET /v1/encounters/{id}/emr-status (every 3-5s until status="done")
 
 3. Admin Workflow
-   ├── Manage providers → GET/POST/PUT/DELETE /v1/providers
-   ├── Manage patients  → GET/POST/PUT/DELETE /v1/patients
+   ├── Manage doctor accounts → GET/POST/PUT/DELETE /v1/users (responses under `data`)
+   ├── Manage providers → GET/POST/PUT/DELETE /v1/providers (responses under `data`)
+   ├── Manage patients  → GET/POST/PUT/DELETE /v1/patients (responses under `data`)
    ├── Import guideline → POST /v1/rag/pdf (multipart)
    │    └── Poll status → GET /v1/rag/documents/{id}
-   └── Manage admins    → GET/POST/PUT/DELETE /v1/admin/users
+   └── Manage admins    → GET/POST/PUT/DELETE /v1/admin/users (responses under `data`)
 
 4. Token Refresh (all roles)
-   Provider: POST /v1/auth/refresh
-   Admin:    POST /v1/admin/auth/refresh
+   Provider: POST /v1/auth/refresh   → read `response.data` (new token pair)
+   Admin:    POST /v1/admin/auth/refresh → read `response.data`
 ```
 
 ---
@@ -939,7 +1062,8 @@ async function providerLogin(email, password) {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: `username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`,
   });
-  const data = await res.json();
+  const body = await res.json();
+  const data = body.data;
   localStorage.setItem('access_token', data.access_token);
   localStorage.setItem('refresh_token', data.refresh_token);
   localStorage.setItem('provider_id', data.provider_id);
@@ -955,7 +1079,8 @@ async function searchPatients(name) {
   const res = await fetch(`${BASE}/patients/search?name=${encodeURIComponent(name)}`, {
     headers: authHeaders(),
   });
-  return res.json(); // { items, total, page, page_size }
+  const body = await res.json();
+  return body.data; // { items, total, page, page_size }
 }
 
 // ── Create encounter ─────────────────────────────────────────
@@ -969,7 +1094,7 @@ async function createEncounter(patientId) {
       care_setting: 'outpatient',
     }),
   });
-  return res.json(); // { id, status, ... }
+  return res.json(); // root payload — encounters API is not wrapped in `data`
 }
 
 // ── Submit transcript + poll EMR ─────────────────────────────
