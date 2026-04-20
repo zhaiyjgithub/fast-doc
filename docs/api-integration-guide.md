@@ -1,7 +1,7 @@
 # MediCare AI — Frontend API Integration Guide
 
-> **Version**: v1.1  
-> **Last Updated**: 2026-04-19  
+> **Version**: v1.2  
+> **Last Updated**: 2026-04-20  
 > **Interactive Docs** (auto-generated, requires server running): http://localhost:8000/docs  
 > **Response contract (wrapped routes)**: [`api-response-reference.md`](./api-response-reference.md)
 
@@ -550,6 +550,52 @@ Authorization: Bearer <admin_access_token>
 
 **Response 204**: No content.
 
+### 7.7 Parse EMR Demographics Text (LLM)
+
+Use this endpoint when the frontend captures a flattened demographics string from the EMR page and needs a structured patient payload.
+
+```
+POST /v1/patients/parse-demographics
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Request**:
+```json
+{
+  "demographics_text": "Patient Demographics Name: Test, Sync-Diag DOB: 01/01/1980 Age: 46y Gender: Male Marital: Unknown Address: 123 Main St. New York NY 10031 Phone: Mobile(888-555-5555) Email: sync.diag@zocdoc.com Patient ID: 1002213835 Preferred Language: English CIR Number: Attending Physician: Registered Office Location: Office Visit Specialty: Internal Medicine Visit Type: Appointment"
+}
+```
+
+**Response 200**:
+```json
+{
+  "data": {
+    "first_name": "Test",
+    "last_name": "Sync-Diag",
+    "date_of_birth": "1980-01-01",
+    "gender": "Male",
+    "primary_language": "English",
+    "clinic_patient_id": "1002213835",
+    "demographics": {
+      "phone": "888-555-5555",
+      "email": "sync.diag@zocdoc.com",
+      "address_line1": "123 Main St.",
+      "city": "New York",
+      "state": "NY",
+      "zip_code": "10031",
+      "country": null
+    }
+  }
+}
+```
+
+**Notes**:
+- `demographics_text` is required.
+- Output is normalized into the same wrapped response contract (`{ "data": ... }`) as other patient endpoints.
+- If the text is empty, API returns `422`.
+- If the model output cannot be parsed into a valid JSON object, API returns `502`.
+
 ---
 
 ## 8. Providers — `/v1/providers`
@@ -1029,6 +1075,7 @@ No auth required.
    └── Admin login   → POST /v1/admin/auth/login → read `response.data`, then store tokens
 
 2. Patient Workflow (Doctor)
+   ├── Parse captured EMR demographics text → POST /v1/patients/parse-demographics → read `response.data`
    ├── Search patient → GET /v1/patients/search?name=... → read `response.data` ({ items, total, page, page_size })
    ├── View patient   → GET /v1/patients/{id} → read `response.data`
    ├── New encounter  → POST /v1/encounters (use provider_id from login)
