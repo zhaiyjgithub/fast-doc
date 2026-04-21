@@ -75,18 +75,27 @@ def create_access_token(
 
     ``user_type`` distinguishes provider tokens (look up *users* table) from
     admin console tokens (look up *admin_users* table).
+
+    ``clinic_id``, ``division_id``, and ``clinic_system`` embed the provider's
+    clinic context into the token so downstream APIs can scope results without
+    extra DB queries. Omit or pass ``None`` for admin tokens or when the provider
+    has no clinic assignment.
     """
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_TTL_MIN)
-    payload = {
+    payload: dict = {
         "sub": subject,
         "user_type": user_type,
-        "provider_id": provider_id,
-        "clinic_id": clinic_id,
-        "division_id": division_id,
-        "clinic_system": clinic_system,
         "exp": expire,
         "type": "access",
     }
+    if provider_id is not None:
+        payload["provider_id"] = provider_id
+    if clinic_id is not None:
+        payload["clinic_id"] = clinic_id
+    if division_id is not None:
+        payload["division_id"] = division_id
+    if clinic_system is not None:
+        payload["clinic_system"] = clinic_system
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 

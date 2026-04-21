@@ -1,4 +1,3 @@
-# tests/api/test_auth_clinic_claims.py
 from app.core.security import create_access_token, decode_token
 
 
