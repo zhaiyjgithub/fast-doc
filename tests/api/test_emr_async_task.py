@@ -24,11 +24,25 @@ GENERATE_BODY = {
 
 
 async def _fake_user() -> CurrentPrincipal:
-    return CurrentPrincipal(id="user-1", email="doc@test.com", user_type="doctor")
+    return CurrentPrincipal(
+        id="user-1",
+        email="doc@test.com",
+        user_type="doctor",
+        clinic_id="clinic-1",
+        division_id="div-1",
+        clinic_system="sys-1",
+    )
 
 
 async def _fake_db():
+    from unittest.mock import MagicMock
+
     mock_session = AsyncMock()
+    # Return a matching patient so the ownership check passes for the fake doctor.
+    mock_patient = SimpleNamespace(clinic_id="clinic-1", division_id="div-1", clinic_system="sys-1")
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = mock_patient
+    mock_session.execute = AsyncMock(return_value=mock_result)
     yield mock_session
 
 

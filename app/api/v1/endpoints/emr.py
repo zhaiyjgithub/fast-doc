@@ -139,6 +139,39 @@ async def _run_emr_background(task_id: str, body: EMRGenerateRequest) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+async def _task_belongs_to_principal(
+    task: EmrTask,
+    principal: "CurrentPrincipal",
+    db: AsyncSession,
+) -> bool:
+    """Return True if the task's encounter belongs to the principal's clinic scope (doctors only)."""
+    if principal.user_type != "doctor":
+        return True  # admin can access any task
+    if not (principal.clinic_id and principal.division_id and principal.clinic_system):
+        return False
+
+    from app.models.patients import Patient
+    from app.models.clinical import Encounter
+
+    result = await db.execute(
+        select(Patient)
+        .join(Encounter, Encounter.patient_id == Patient.id)
+        .where(Encounter.id == task.encounter_id)
+    )
+    patient = result.scalar_one_or_none()
+    if patient is None:
+        return False
+    return (
+        patient.clinic_id == principal.clinic_id
+        and patient.division_id == principal.division_id
+        and patient.clinic_system == principal.clinic_system
+    )
+
+
+# ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
@@ -185,6 +218,9 @@ async def get_emr_task(
     task_svc = EmrTaskService(db)
     task = await task_svc.get(task_id)
     if task is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+
+    if not await _task_belongs_to_principal(task, _user, db):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
 
     result = None
