@@ -269,9 +269,26 @@ async def search_patients(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _user: "CurrentPrincipal" = Depends(require_doctor_or_admin),
+    principal: "CurrentPrincipal" = Depends(require_doctor_or_admin),
 ) -> ApiResponse[PatientListResponse]:
     svc = PatientService(db)
+
+    if principal.user_type == "doctor":
+        if not (principal.clinic_id and principal.division_id and principal.clinic_system):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Provider clinic context is incomplete",
+            )
+        clinic_scope: tuple[str, str, str] | None = (
+            principal.clinic_id,
+            principal.division_id,
+            principal.clinic_system,
+        )
+        # JWT scope wins — ignore any caller-supplied clinic params
+        clinic_id = division_id = clinic_system = None
+    else:
+        clinic_scope = None  # Admin: use explicit query params as-is
+
     items, total = await svc.search(
         q=q,
         name=name,
@@ -285,6 +302,7 @@ async def search_patients(
         language=language,
         page=page,
         page_size=page_size,
+        clinic_scope=clinic_scope,
     )
     return ApiResponse(
         data=PatientListResponse(
@@ -301,10 +319,26 @@ async def list_patients(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _user: "CurrentPrincipal" = Depends(require_doctor_or_admin),
+    principal: "CurrentPrincipal" = Depends(require_doctor_or_admin),
 ) -> ApiResponse[PatientListResponse]:
     svc = PatientService(db)
-    items, total = await svc.list_patients(page=page, page_size=page_size)
+
+    if principal.user_type == "doctor":
+        if not (principal.clinic_id and principal.division_id and principal.clinic_system):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Provider clinic context is incomplete",
+            )
+        items, total = await svc.list_patients(
+            page=page,
+            page_size=page_size,
+            clinic_id=principal.clinic_id,
+            division_id=principal.division_id,
+            clinic_system=principal.clinic_system,
+        )
+    else:
+        items, total = await svc.list_patients(page=page, page_size=page_size)
+
     return ApiResponse(
         data=PatientListResponse(
             items=[_build_patient_out(p) for p in items],

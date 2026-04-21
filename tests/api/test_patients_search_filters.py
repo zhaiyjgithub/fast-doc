@@ -11,7 +11,7 @@ from app.main import app
 
 
 async def _fake_current_user() -> CurrentPrincipal:
-    return CurrentPrincipal(id="test-user", email="test@example.com", user_type="doctor")
+    return CurrentPrincipal(id="test-user", email="test@example.com", user_type="admin")
 
 
 async def _fake_db():

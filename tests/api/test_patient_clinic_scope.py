@@ -1,10 +1,34 @@
+import uuid
 import pytest
 from unittest.mock import AsyncMock, MagicMock, call
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects import postgresql
+from httpx import AsyncClient, ASGITransport
 
 from app.services.patient_service import PatientService
+from app.main import app as fastapi_app
+from app.api.v1.deps import get_current_user, CurrentPrincipal
+
+
+def _doctor_principal(clinic_id=None, division_id=None, clinic_system=None):
+    return CurrentPrincipal(
+        id=str(uuid.uuid4()),
+        email="doc@test.com",
+        user_type="doctor",
+        provider_id=str(uuid.uuid4()),
+        clinic_id=clinic_id,
+        division_id=division_id,
+        clinic_system=clinic_system,
+    )
+
+
+def _admin_principal():
+    return CurrentPrincipal(
+        id=str(uuid.uuid4()),
+        email="admin@test.com",
+        user_type="admin",
+    )
 
 
 def _make_mock_db():
@@ -71,3 +95,42 @@ async def test_search_applies_clinic_scope_overriding_loose_params():
     assert "WRONG_CLINIC" not in sql
     assert "WRONG_DIV" not in sql
     assert "wrong_system" not in sql
+
+
+async def test_list_patients_doctor_incomplete_context_returns_403():
+    """Doctor with missing clinic context gets 403 from list_patients."""
+    principal = _doctor_principal(clinic_id=None, division_id=None, clinic_system=None)
+
+    async def override_auth():
+        return principal
+
+    fastapi_app.dependency_overrides[get_current_user] = override_auth
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=fastapi_app), base_url="http://test"
+        ) as client:
+            resp = await client.get("/v1/patients")
+    finally:
+        fastapi_app.dependency_overrides.pop(get_current_user, None)
+
+    assert resp.status_code == 403
+    assert "clinic context" in resp.json()["detail"].lower()
+
+
+async def test_search_patients_doctor_incomplete_context_returns_403():
+    """Doctor with missing clinic context gets 403 from search_patients."""
+    principal = _doctor_principal(clinic_id="CLINIC_A", division_id=None, clinic_system=None)
+
+    async def override_auth():
+        return principal
+
+    fastapi_app.dependency_overrides[get_current_user] = override_auth
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=fastapi_app), base_url="http://test"
+        ) as client:
+            resp = await client.get("/v1/patients/search")
+    finally:
+        fastapi_app.dependency_overrides.pop(get_current_user, None)
+
+    assert resp.status_code == 403

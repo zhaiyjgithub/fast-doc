@@ -17,6 +17,9 @@ async def _fake_current_user() -> CurrentPrincipal:
         id="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
         email="doctor@example.com",
         user_type="doctor",
+        clinic_id="clinic-001",
+        division_id="division-001",
+        clinic_system="epic",
     )
 
 
@@ -192,7 +195,13 @@ async def test_list_serializes_clinic_fields(async_client):
         response = await async_client.get("/v1/patients")
 
     assert response.status_code == 200
-    list_mock.assert_awaited_once_with(page=1, page_size=20)
+    list_mock.assert_awaited_once_with(
+        page=1,
+        page_size=20,
+        clinic_id="clinic-001",
+        division_id="division-001",
+        clinic_system="epic",
+    )
     body = response.json()["data"]
     assert body["total"] == 1
     assert body["items"][0]["created_by"] == "44444444-4444-4444-4444-444444444444"
