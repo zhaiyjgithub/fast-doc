@@ -121,6 +121,10 @@ class EMRService:
     ) -> EMRGraphState:
         """Run the full DualRAG + EMR generation pipeline."""
         patient_uuid = uuid.UUID(patient_id)
+        encounter_uuid = uuid.UUID(encounter_id)
+        encounter = await self._load_encounter_by_uuid(encounter_uuid)
+        if encounter is not None:
+            encounter.transcript_text = transcript
 
         # 1. Load provider context
         provider = await self._load_provider(provider_id)
@@ -178,7 +182,7 @@ class EMRService:
         # 8. Persist EmrNote
         from app.models.clinical import EmrNote
         emr_note = EmrNote(
-            encounter_id=uuid.UUID(encounter_id),
+            encounter_id=encounter_uuid,
             request_id=request_id,
             soap_json=soap_note,
             note_text=emr_text,
@@ -199,7 +203,7 @@ class EMRService:
 
         # 9. Update encounter chief complaint from current transcript
         await self._upsert_encounter_chief_complaint_from_transcript(
-            encounter_id=encounter_id,
+            encounter=encounter,
             transcript=transcript,
             request_id=request_id,
         )
@@ -208,21 +212,24 @@ class EMRService:
         from app.services.coding_service import CodingService
         coding_svc = CodingService(self.db)
         icd_suggestions = await coding_svc.suggest_icd(
-            encounter_id=encounter_id,
+            encounter_id=str(encounter_uuid),
             soap_note=soap_note,
             emr_text=emr_text,
             request_id=request_id,
         )
         cpt_suggestions = await coding_svc.suggest_cpt(
-            encounter_id=encounter_id,
+            encounter_id=str(encounter_uuid),
             soap_note=soap_note,
             emr_text=emr_text,
             request_id=request_id,
         )
+        if encounter is not None:
+            encounter.status = "done"
+            await self.db.flush()
 
         return EMRGraphState(
             request_id=request_id or "",
-            encounter_id=encounter_id,
+            encounter_id=str(encounter_uuid),
             patient_id=patient_id,
             provider_id=str(provider.id) if provider else "",
             provider_specialty=provider.specialty if provider else None,
@@ -257,19 +264,19 @@ class EMRService:
         )
         return result.scalar_one_or_none()
 
+    async def _load_encounter_by_uuid(self, encounter_uuid: uuid.UUID) -> Encounter | None:
+        result = await self.db.execute(
+            select(Encounter).where(Encounter.id == encounter_uuid)
+        )
+        return result.scalar_one_or_none()
+
     async def _upsert_encounter_chief_complaint_from_transcript(
         self,
         *,
-        encounter_id: str,
+        encounter: Encounter | None,
         transcript: str,
         request_id: str | None = None,
     ) -> None:
-        try:
-            encounter_uuid = uuid.UUID(encounter_id)
-        except ValueError:
-            return
-        result = await self.db.execute(select(Encounter).where(Encounter.id == encounter_uuid))
-        encounter = result.scalars().first()
         if encounter is None:
             return
 

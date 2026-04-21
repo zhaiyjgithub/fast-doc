@@ -51,6 +51,43 @@ This is the key model relationship for frontend integration:
 
 ## 3) API-by-API Usage
 
+## 3.0 List Encounters (Home/Notes)
+
+`GET /encounters`
+
+### Query
+
+- `page` (default `1`)
+- `page_size` (default `20`, max `100`)
+- `today_only` (`true|false`, default `false`)
+
+### Response (`200`) sketch
+
+```json
+[
+  {
+    "id": "encounter-uuid",
+    "patient_id": "patient-uuid",
+    "provider_id": "provider-uuid",
+    "encounter_time": "2026-04-20T09:30:00+00:00",
+    "care_setting": "outpatient",
+    "chief_complaint": "",
+    "status": "done",
+    "has_transcript": true,
+    "transcript_text": "Doctor: ...\nPatient: ...",
+    "latest_emr": { "subjective": "...", "objective": "...", "assessment": "...", "plan": "..." }
+  }
+]
+```
+
+### Frontend notes
+
+- Use `today_only=true` for Home page daily list.
+- Use paginated query for Notes page history list.
+- `transcript_text` is returned for transcript detail rendering.
+
+---
+
 ## 3.1 Create Encounter
 
 `POST /encounters`
@@ -236,6 +273,12 @@ Suggested client-side states:
 - `emr_generating` -> after transcript submit with `auto_generate_emr=true`
 - `emr_ready` -> poll returns `done`
 - `emr_failed` -> poll returns `failed`
+
+Additionally, for AI EMR detail pages:
+
+- `encounter_selected` -> user opened an encounter from Home/Notes
+- `report_loaded` -> `/encounters/{encounter_id}/report` returns latest SOAP + code suggestions
+- `transcript_view` -> user opens Transcript from AI EMR FAB, read-only from `transcript_text`
 
 ---
 

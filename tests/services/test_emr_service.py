@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from sqlalchemy import select
 
 from app.services.emr_service import EMRService, build_system_prompt
 
@@ -157,6 +158,8 @@ async def test_emr_generate_with_mocked_llm(db_session):
         "plan": "Prednisone 40mg x 5 days, Azithromycin 500mg, increase bronchodilator",
     })
 
+    transcript = "Patient has increased dyspnea for 3 days and productive cough."
+
     with (
         patch(
             "app.services.patient_rag.llm_adapter.embed",
@@ -178,25 +181,25 @@ async def test_emr_generate_with_mocked_llm(db_session):
         state = await svc.generate(
             encounter_id=str(encounter_uuid),
             patient_id=str(patient_uuid),
-            transcript="Patient has increased dyspnea for 3 days and productive cough.",
+            transcript=transcript,
             request_id="emr-test-001",
         )
 
     assert state["soap_note"]["assessment"] == "COPD exacerbation, moderate"
     assert "ASSESSMENT" in state["emr_text"]
     assert state["encounter_id"] == str(encounter_uuid)
+    encounter_after = (
+        await db_session.execute(select(Encounter).where(Encounter.id == encounter_uuid))
+    ).scalars().first()
+    assert encounter_after is not None
+    assert encounter_after.transcript_text == transcript
+    assert encounter_after.status == "done"
+    assert encounter_after.chief_complaint == "Shortness of breath"
 
 
 async def test_upsert_chief_complaint_updates_encounter_from_llm_summary():
     encounter = SimpleNamespace(chief_complaint="")
-    fake_db = SimpleNamespace(
-        execute=AsyncMock(
-            return_value=SimpleNamespace(
-                scalars=lambda: SimpleNamespace(first=lambda: encounter)
-            )
-        ),
-        flush=AsyncMock(),
-    )
+    fake_db = SimpleNamespace(execute=AsyncMock(), flush=AsyncMock())
     svc = EMRService(fake_db)
 
     with patch(
@@ -205,7 +208,7 @@ async def test_upsert_chief_complaint_updates_encounter_from_llm_summary():
         return_value='"Shortness of breath"',
     ):
         await svc._upsert_encounter_chief_complaint_from_transcript(
-            encounter_id=str(uuid.uuid4()),
+            encounter=encounter,
             transcript="Patient reports shortness of breath for 3 days.",
             request_id="req-cc-001",
         )

@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import desc, select
+from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import CurrentPrincipal, require_doctor_or_admin
@@ -51,6 +51,7 @@ class EncounterOut(BaseModel):
     chief_complaint: str | None = None
     status: str
     has_transcript: bool = False
+    transcript_text: str | None = None
     latest_emr: dict | None = None
 
 
@@ -121,6 +122,7 @@ def _encounter_to_out(enc: Encounter, latest_emr_note: EmrNote | None) -> Encoun
         chief_complaint=enc.chief_complaint,
         status=enc.status,
         has_transcript=bool(enc.transcript_text),
+        transcript_text=enc.transcript_text,
         latest_emr=latest_emr_note.soap_json if latest_emr_note else None,
     )
 
@@ -133,6 +135,36 @@ async def _get_latest_emr_note(db: AsyncSession, encounter_id: uuid.UUID) -> Emr
         .limit(1)
     )
     return result.scalars().first()
+
+
+async def _get_latest_emr_notes_by_encounter_ids(
+    db: AsyncSession,
+    encounter_ids: list[uuid.UUID],
+) -> dict[uuid.UUID, EmrNote]:
+    if not encounter_ids:
+        return {}
+
+    latest_per_encounter = (
+        select(
+            EmrNote.encounter_id.label("encounter_id"),
+            func.max(EmrNote.created_at).label("max_created_at"),
+        )
+        .where(EmrNote.encounter_id.in_(encounter_ids))
+        .group_by(EmrNote.encounter_id)
+        .subquery()
+    )
+
+    latest_notes_result = await db.execute(
+        select(EmrNote).join(
+            latest_per_encounter,
+            and_(
+                EmrNote.encounter_id == latest_per_encounter.c.encounter_id,
+                EmrNote.created_at == latest_per_encounter.c.max_created_at,
+            ),
+        )
+    )
+    latest_notes = latest_notes_result.scalars().all()
+    return {note.encounter_id: note for note in latest_notes}
 
 
 async def _get_encounter_or_404(db: AsyncSession, encounter_id: str) -> Encounter:
@@ -189,6 +221,46 @@ async def create_encounter(
 
 
 @router.get(
+    "/encounters",
+    response_model=list[EncounterOut],
+)
+async def list_encounters(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _user: Annotated["CurrentPrincipal", Depends(require_doctor_or_admin)],
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    today_only: bool = Query(False),
+) -> list[EncounterOut]:
+    """List encounters ordered by encounter_time DESC with optional UTC today filter."""
+    offset = (page - 1) * page_size
+
+    statement = select(Encounter)
+    if today_only:
+        day_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        next_day_start = day_start + timedelta(days=1)
+        statement = statement.where(
+            Encounter.encounter_time >= day_start,
+            Encounter.encounter_time < next_day_start,
+        )
+
+    result = await db.execute(
+        statement
+        .order_by(desc(Encounter.encounter_time), desc(Encounter.id))
+        .offset(offset)
+        .limit(page_size)
+    )
+    encounters = result.scalars().all()
+    latest_notes_by_encounter = await _get_latest_emr_notes_by_encounter_ids(
+        db,
+        [enc.id for enc in encounters],
+    )
+    return [
+        _encounter_to_out(enc, latest_notes_by_encounter.get(enc.id))
+        for enc in encounters
+    ]
+
+
+@router.get(
     "/patients/{patient_id}/encounters",
     response_model=list[EncounterOut],
 )
@@ -209,17 +281,19 @@ async def list_patient_encounters(
     result = await db.execute(
         select(Encounter)
         .where(Encounter.patient_id == patient_uuid)
-        .order_by(desc(Encounter.encounter_time))
+        .order_by(desc(Encounter.encounter_time), desc(Encounter.id))
         .offset(offset)
         .limit(page_size)
     )
     encounters = result.scalars().all()
-
-    items: list[EncounterOut] = []
-    for enc in encounters:
-        latest_note = await _get_latest_emr_note(db, enc.id)
-        items.append(_encounter_to_out(enc, latest_note))
-    return items
+    latest_notes_by_encounter = await _get_latest_emr_notes_by_encounter_ids(
+        db,
+        [enc.id for enc in encounters],
+    )
+    return [
+        _encounter_to_out(enc, latest_notes_by_encounter.get(enc.id))
+        for enc in encounters
+    ]
 
 
 @router.get(

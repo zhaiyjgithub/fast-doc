@@ -775,6 +775,23 @@ Authorization: Bearer <token>
 
 **Response 200**: Array of `EncounterOut` objects, ordered by `encounter_time` DESC.
 
+### 9.3 List Encounters (Home / Notes)
+
+```
+GET /v1/encounters?page=1&page_size=20&today_only=false
+Authorization: Bearer <token>
+```
+
+**Query**:
+- `page` (default `1`)
+- `page_size` (default `20`, max `100`)
+- `today_only` (`true|false`, default `false`)
+
+**Response 200**: Array of `EncounterOut` objects, ordered by `encounter_time` DESC.
+
+> Use `today_only=true` for Home page daily records.  
+> Use paginated query for Notes page history.
+
 ### 9.3 Get Encounter
 
 ```
@@ -1106,9 +1123,13 @@ No auth required.
    ├── Parse captured EMR demographics text (+ clinic context) → POST /v1/patients/parse-demographics → read `response.data.is_new` and `response.data.patient`
    ├── Search patient → GET /v1/patients/search?name=... → read `response.data` ({ items, total, page, page_size })
    ├── View patient   → GET /v1/patients/{id} → read `response.data`
+   ├── Home list (today) → GET /v1/encounters?today_only=true&page=1&page_size=20
+   ├── Notes list (history) → GET /v1/encounters?page=1&page_size=20
    ├── New encounter  → POST /v1/encounters (use provider_id from login)
    ├── Submit transcript → PUT /v1/encounters/{id}/transcript { auto_generate_emr: true }
    └── Poll EMR status  → GET /v1/encounters/{id}/emr-status (every 3-5s until status="done")
+        ├── Load final report → GET /v1/encounters/{id}/report
+        └── View transcript page (read-only) → use `transcript_text` from encounter list/detail
 
 3. Admin Workflow
    ├── Manage doctor accounts → GET/POST/PUT/DELETE /v1/users (responses under `data`)
