@@ -1,6 +1,7 @@
 """POST /v1/auth/login — Provider (doctor) JWT authentication endpoints."""
 from __future__ import annotations
 
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -14,10 +15,28 @@ from app.api.v1.deps import CurrentPrincipal, get_current_user
 from app.api.v1.schemas import ApiResponse, MessagePayload
 from app.core.security import create_access_token, create_refresh_token, decode_token
 from app.db.session import get_db
+from app.models.providers import Provider
 from app.models.users import User
 from app.services.user_service import UserService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+async def _load_provider_clinic(
+    db: AsyncSession, provider_id: str | None
+) -> tuple[str | None, str | None, str | None]:
+    """Return (clinic_id, division_id, clinic_system) for a provider."""
+    if not provider_id:
+        return None, None, None
+    try:
+        prov_uuid = uuid.UUID(provider_id)
+    except (TypeError, ValueError):
+        return None, None, None
+    result = await db.execute(select(Provider).where(Provider.id == prov_uuid))
+    provider = result.scalars().first()
+    if provider is None:
+        return None, None, None
+    return provider.provider_clinic_id, provider.division_id, provider.clinic_system
 
 
 class TokenResponse(BaseModel):
@@ -27,6 +46,9 @@ class TokenResponse(BaseModel):
     user_type: str = "doctor"
     user_id: str
     provider_id: str | None
+    clinic_id: str | None = None
+    division_id: str | None = None
+    clinic_system: str | None = None
 
 
 class RefreshRequest(BaseModel):
@@ -58,10 +80,15 @@ async def login(
             detail="Invalid email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    prov_id_str = str(user.provider_id) if user.provider_id else None
+    clinic_id, division_id, clinic_system = await _load_provider_clinic(db, prov_id_str)
     access = create_access_token(
         subject=str(user.id),
         user_type="doctor",
-        provider_id=str(user.provider_id) if user.provider_id else None,
+        provider_id=prov_id_str,
+        clinic_id=clinic_id,
+        division_id=division_id,
+        clinic_system=clinic_system,
     )
     refresh = create_refresh_token(subject=str(user.id), user_type="doctor")
     return ApiResponse(
@@ -69,7 +96,10 @@ async def login(
             access_token=access,
             refresh_token=refresh,
             user_id=str(user.id),
-            provider_id=str(user.provider_id) if user.provider_id else None,
+            provider_id=prov_id_str,
+            clinic_id=clinic_id,
+            division_id=division_id,
+            clinic_system=clinic_system,
         )
     )
 
@@ -102,10 +132,15 @@ async def refresh_token(
     if user is None:
         raise credentials_exc
 
+    prov_id_str = str(user.provider_id) if user.provider_id else None
+    clinic_id, division_id, clinic_system = await _load_provider_clinic(db, prov_id_str)
     access = create_access_token(
         subject=str(user.id),
         user_type="doctor",
-        provider_id=str(user.provider_id) if user.provider_id else None,
+        provider_id=prov_id_str,
+        clinic_id=clinic_id,
+        division_id=division_id,
+        clinic_system=clinic_system,
     )
     new_refresh = create_refresh_token(subject=str(user.id), user_type="doctor")
     return ApiResponse(
@@ -113,7 +148,10 @@ async def refresh_token(
             access_token=access,
             refresh_token=new_refresh,
             user_id=str(user.id),
-            provider_id=str(user.provider_id) if user.provider_id else None,
+            provider_id=prov_id_str,
+            clinic_id=clinic_id,
+            division_id=division_id,
+            clinic_system=clinic_system,
         )
     )
 
