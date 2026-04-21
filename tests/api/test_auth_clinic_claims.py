@@ -1,3 +1,6 @@
+from unittest.mock import AsyncMock, MagicMock
+
+from app.api.v1.deps import get_current_user
 from app.core.security import create_access_token, decode_token
 
 
@@ -31,12 +34,7 @@ def test_access_token_clinic_claims_nullable():
     assert payload.get("clinic_system") is None
 
 
-import asyncio
-from unittest.mock import AsyncMock, MagicMock
-from app.api.v1.deps import get_current_user
-
-
-def test_get_current_user_populates_clinic_fields():
+async def test_get_current_user_populates_clinic_fields():
     """get_current_user must extract clinic fields from JWT into CurrentPrincipal."""
     token = create_access_token(
         subject="user-123",
@@ -58,13 +56,7 @@ def test_get_current_user_populates_clinic_fields():
     mock_db = AsyncMock()
     mock_db.execute = AsyncMock(return_value=mock_result)
 
-    loop = asyncio.new_event_loop()
-    try:
-        principal = loop.run_until_complete(
-            get_current_user(token=token, db=mock_db)
-        )
-    finally:
-        loop.close()
+    principal = await get_current_user(token=token, db=mock_db)
 
     assert principal.clinic_id == "CLINIC_01"
     assert principal.division_id == "DIV_A"
