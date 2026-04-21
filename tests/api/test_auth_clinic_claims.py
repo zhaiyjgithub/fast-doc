@@ -10,6 +10,7 @@ from app.core.security import create_access_token, decode_token
 from app.db.session import get_db
 from app.main import app
 from app.models.providers import Provider
+from app.models.users import User
 from app.services.user_service import UserService
 
 
@@ -111,6 +112,66 @@ async def test_login_returns_clinic_fields_in_token():
                 )
     finally:
         app.dependency_overrides.pop(get_db, None)
+
+    assert resp.status_code == 200, resp.text
+    data = resp.json()["data"]
+    assert data["clinic_id"] == "CLINIC_01"
+    assert data["division_id"] == "DIV_A"
+    assert data["clinic_system"] == "epic"
+
+
+@pytest.mark.anyio
+async def test_refresh_returns_clinic_fields_in_token():
+    """Refresh endpoint must include clinic_id, division_id, clinic_system in response."""
+    from app.core.security import create_refresh_token
+    from app.main import app as fastapi_app
+
+    provider_uuid = uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+    user_uuid = uuid.UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+
+    refresh = create_refresh_token(subject=str(user_uuid), user_type="doctor")
+
+    mock_user = MagicMock(spec=User)
+    mock_user.id = user_uuid
+    mock_user.email = "refresh_test@test.com"
+    mock_user.provider_id = provider_uuid
+
+    mock_provider = MagicMock(spec=Provider)
+    mock_provider.provider_clinic_id = "CLINIC_01"
+    mock_provider.division_id = "DIV_A"
+    mock_provider.clinic_system = "epic"
+
+    call_count = 0
+
+    async def fake_execute(stmt):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            r = MagicMock()
+            r.scalars.return_value.first.return_value = mock_user
+            return r
+        else:
+            r = MagicMock()
+            r.scalars.return_value.first.return_value = mock_provider
+            return r
+
+    mock_db = AsyncMock()
+    mock_db.execute = fake_execute
+
+    async def override_db():
+        yield mock_db
+
+    fastapi_app.dependency_overrides[get_db] = override_db
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=fastapi_app), base_url="http://test"
+        ) as client:
+            resp = await client.post(
+                "/v1/auth/refresh",
+                json={"refresh_token": refresh},
+            )
+    finally:
+        fastapi_app.dependency_overrides.pop(get_db, None)
 
     assert resp.status_code == 200, resp.text
     data = resp.json()["data"]

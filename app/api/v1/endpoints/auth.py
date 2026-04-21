@@ -25,7 +25,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 async def _load_provider_clinic(
     db: AsyncSession, provider_id: str | None
 ) -> tuple[str | None, str | None, str | None]:
-    """Return (clinic_id, division_id, clinic_system) for a provider."""
+    """Return (clinic_id, division_id, clinic_system) for a provider, or (None, None, None) if unavailable."""
     if not provider_id:
         return None, None, None
     try:
