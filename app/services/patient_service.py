@@ -90,9 +90,21 @@ class PatientService:
         return result.scalars().first()
 
     async def list_patients(
-        self, page: int = 1, page_size: int = 20
+        self,
+        page: int = 1,
+        page_size: int = 20,
+        clinic_id: str | None = None,
+        division_id: str | None = None,
+        clinic_system: str | None = None,
     ) -> tuple[list[Patient], int]:
         base = select(Patient).where(Patient.is_active == True)  # noqa: E712
+
+        if clinic_id:
+            base = base.where(Patient.clinic_id == clinic_id)
+        if division_id:
+            base = base.where(Patient.division_id == division_id)
+        if clinic_system:
+            base = base.where(Patient.clinic_system == clinic_system)
 
         count_result = await self.db.execute(
             select(func.count()).select_from(base.subquery())
@@ -168,7 +180,12 @@ class PatientService:
         language: str | None = None,
         page: int = 1,
         page_size: int = 20,
+        clinic_scope: tuple[str, str, str] | None = None,
     ) -> tuple[list[Patient], int]:
+        # clinic_scope takes priority over loose clinic params
+        if clinic_scope is not None:
+            clinic_id, division_id, clinic_system = clinic_scope
+
         stmt = (
             select(Patient)
             .options(selectinload(Patient.demographics))
