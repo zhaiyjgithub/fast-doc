@@ -67,6 +67,9 @@ def create_access_token(
     subject: str,
     user_type: str,  # "doctor" | "admin"
     provider_id: str | None = None,
+    clinic_id: str | None = None,
+    division_id: str | None = None,
+    clinic_system: str | None = None,
 ) -> str:
     """Create a short-lived access token.
 
@@ -78,6 +81,9 @@ def create_access_token(
         "sub": subject,
         "user_type": user_type,
         "provider_id": provider_id,
+        "clinic_id": clinic_id,
+        "division_id": division_id,
+        "clinic_system": clinic_system,
         "exp": expire,
         "type": "access",
     }
