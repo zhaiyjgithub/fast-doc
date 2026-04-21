@@ -139,6 +139,31 @@ class ParsedPatientDemographicsOut(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+def _require_doctor_clinic_context(principal: "CurrentPrincipal") -> tuple[str, str, str]:
+    """Raise 403 if doctor's JWT is missing any clinic field. Returns (clinic_id, division_id, clinic_system)."""
+    if principal.user_type != "doctor":
+        raise ValueError("Not a doctor principal")
+    if not (principal.clinic_id and principal.division_id and principal.clinic_system):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Provider clinic context is incomplete",
+        )
+    return principal.clinic_id, principal.division_id, principal.clinic_system
+
+
+def _assert_patient_in_scope(patient, principal: "CurrentPrincipal") -> None:
+    """Raise 403 if the patient does not belong to the doctor's clinic scope."""
+    if (
+        patient.clinic_id != principal.clinic_id
+        or patient.division_id != principal.division_id
+        or patient.clinic_system != principal.clinic_system
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Patient is not in your clinic scope",
+        )
+
+
 def _build_patient_out(patient) -> PatientOut:
     demo_out: DemographicsOut | None = None
     if patient.demographics:
@@ -353,16 +378,19 @@ async def list_patients(
 async def create_patient(
     body: PatientCreate,
     db: AsyncSession = Depends(get_db),
-    _user: "CurrentPrincipal" = Depends(require_doctor_or_admin),
+    principal: "CurrentPrincipal" = Depends(require_doctor_or_admin),
 ) -> ApiResponse[PatientOut]:
     svc = PatientService(db)
     data = body.model_dump()
-    # created_by points to users.id (doctor account). Admin principal IDs come from admin_users,
-    # so default admin writes should keep created_by null unless explicitly provided for imports.
-    if _user.user_type == "admin":
+    if principal.user_type == "admin":
         data["created_by"] = str(body.created_by) if body.created_by is not None else None
     else:
-        data["created_by"] = _user.id
+        # Doctor: verify clinic context and force JWT clinic values — cannot create outside own clinic
+        clinic_id, division_id, clinic_system = _require_doctor_clinic_context(principal)
+        data["created_by"] = principal.id
+        data["clinic_id"] = clinic_id
+        data["division_id"] = division_id
+        data["clinic_system"] = clinic_system
     if data.get("demographics"):
         # strip fields with no DB column
         data["demographics"].pop("address_line2", None)
@@ -375,11 +403,19 @@ async def create_patient(
 async def parse_demographics(
     body: ParseDemographicsIn,
     db: AsyncSession = Depends(get_db),
-    _user: "CurrentPrincipal" = Depends(require_doctor_or_admin),
+    principal: "CurrentPrincipal" = Depends(require_doctor_or_admin),
 ) -> ApiResponse[ParseDemographicsResultOut]:
     source_text = body.demographics_text.strip()
     if not source_text:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="demographics_text is required")
+
+    # For doctors, JWT clinic values are authoritative — override any body-supplied values.
+    if principal.user_type == "doctor":
+        effective_clinic_id, effective_division_id, effective_clinic_system = _require_doctor_clinic_context(principal)
+    else:
+        effective_clinic_id = body.clinic_id
+        effective_division_id = body.division_id
+        effective_clinic_system = body.clinic_system
 
     system_prompt = (
         "You are a medical intake parser. Convert flattened EMR demographics text into JSON. "
@@ -408,9 +444,9 @@ async def parse_demographics(
 
     svc = PatientService(db)
     matched_patient = await svc.find_existing_by_clinic_identity(
-        clinic_system=body.clinic_system,
-        clinic_id=body.clinic_id,
-        division_id=body.division_id,
+        clinic_system=effective_clinic_system,
+        clinic_id=effective_clinic_id,
+        division_id=effective_division_id,
         date_of_birth=parsed.date_of_birth,
         email=parsed.demographics.email if parsed.demographics else None,
         phone=parsed.demographics.phone if parsed.demographics else None,
@@ -430,11 +466,11 @@ async def parse_demographics(
         "gender": parsed.gender,
         "primary_language": parsed.primary_language or "en-US",
         "clinic_patient_id": parsed.clinic_patient_id,
-        "clinic_id": body.clinic_id,
-        "division_id": body.division_id,
-        "clinic_system": body.clinic_system,
+        "clinic_id": effective_clinic_id,
+        "division_id": effective_division_id,
+        "clinic_system": effective_clinic_system,
         "clinic_name": body.clinic_name,
-        "created_by": None if _user.user_type == "admin" else _user.id,
+        "created_by": None if principal.user_type == "admin" else principal.id,
     }
     if parsed.demographics:
         create_payload["demographics"] = parsed.demographics.model_dump()
@@ -452,12 +488,15 @@ async def parse_demographics(
 async def get_patient(
     patient_id: str,
     db: AsyncSession = Depends(get_db),
-    _user: "CurrentPrincipal" = Depends(require_doctor_or_admin),
+    principal: "CurrentPrincipal" = Depends(require_doctor_or_admin),
 ) -> ApiResponse[PatientOut]:
     svc = PatientService(db)
     patient = await svc.get(patient_id)
     if patient is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
+    if principal.user_type == "doctor":
+        _require_doctor_clinic_context(principal)
+        _assert_patient_in_scope(patient, principal)
     return ApiResponse(data=_build_patient_out(patient))
 
 
@@ -466,9 +505,16 @@ async def update_patient(
     patient_id: str,
     body: PatientUpdate,
     db: AsyncSession = Depends(get_db),
-    _user: "CurrentPrincipal" = Depends(require_doctor_or_admin),
+    principal: "CurrentPrincipal" = Depends(require_doctor_or_admin),
 ) -> ApiResponse[PatientOut]:
     svc = PatientService(db)
+    if principal.user_type == "doctor":
+        _require_doctor_clinic_context(principal)
+        # Fetch first to verify ownership before applying changes
+        existing = await svc.get(patient_id)
+        if existing is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
+        _assert_patient_in_scope(existing, principal)
     patient = await svc.update(patient_id, body.model_dump(exclude_unset=True))
     if patient is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")

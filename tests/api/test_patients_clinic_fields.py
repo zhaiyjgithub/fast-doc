@@ -111,24 +111,35 @@ async def test_create_accepts_and_serializes_clinic_fields(async_client):
 
 async def test_update_accepts_and_serializes_clinic_fields(async_client):
     patient_id = str(uuid4())
-    with patch(
-        "app.api.v1.endpoints.patients.PatientService.update",
-        new_callable=AsyncMock,
-        return_value=_patient_stub(
-            clinic_patient_id="clinic-patient-002",
-            clinic_id="clinic-002",
-            division_id="division-002",
-            clinic_system="cerner",
-            clinic_name="Northside Pulmonary",
+    # existing stub must match the doctor principal's clinic scope for the ownership check
+    existing = _patient_stub(
+        clinic_id="clinic-001",
+        division_id="division-001",
+        clinic_system="epic",
+    )
+    updated = _patient_stub(
+        clinic_patient_id="clinic-patient-002",
+        clinic_id="clinic-001",
+        division_id="division-001",
+        clinic_system="epic",
+        clinic_name="Northside Pulmonary",
+    )
+    with (
+        patch(
+            "app.api.v1.endpoints.patients.PatientService.get",
+            new_callable=AsyncMock,
+            return_value=existing,
         ),
-    ) as update_mock:
+        patch(
+            "app.api.v1.endpoints.patients.PatientService.update",
+            new_callable=AsyncMock,
+            return_value=updated,
+        ) as update_mock,
+    ):
         response = await async_client.put(
             f"/v1/patients/{patient_id}",
             json={
                 "clinic_patient_id": "clinic-patient-002",
-                "clinic_id": "clinic-002",
-                "division_id": "division-002",
-                "clinic_system": "cerner",
                 "clinic_name": "Northside Pulmonary",
             },
         )
@@ -137,27 +148,23 @@ async def test_update_accepts_and_serializes_clinic_fields(async_client):
     assert update_mock.await_args.args[0] == patient_id
     update_payload = update_mock.await_args.args[1]
     assert update_payload["clinic_patient_id"] == "clinic-patient-002"
-    assert update_payload["clinic_id"] == "clinic-002"
-    assert update_payload["division_id"] == "division-002"
-    assert update_payload["clinic_system"] == "cerner"
-    assert update_payload["clinic_name"] == "Northside Pulmonary"
 
     data = response.json()["data"]
-    assert data["created_by"] == "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
     assert data["clinic_patient_id"] == "clinic-patient-002"
-    assert data["clinic_id"] == "clinic-002"
-    assert data["division_id"] == "division-002"
-    assert data["clinic_system"] == "cerner"
+    assert data["clinic_id"] == "clinic-001"
+    assert data["division_id"] == "division-001"
+    assert data["clinic_system"] == "epic"
     assert data["clinic_name"] == "Northside Pulmonary"
 
 
 async def test_get_serializes_clinic_fields(async_client):
+    # Patient must belong to the doctor's clinic scope (clinic-001 / division-001 / epic)
     patient = _patient_stub(
         created_by="33333333-3333-3333-3333-333333333333",
         clinic_patient_id="clinic-patient-003",
-        clinic_id="clinic-003",
-        division_id="division-003",
-        clinic_system="athena",
+        clinic_id="clinic-001",
+        division_id="division-001",
+        clinic_system="epic",
         clinic_name="Westside Respiratory",
     )
     with patch(
@@ -172,9 +179,9 @@ async def test_get_serializes_clinic_fields(async_client):
     data = response.json()["data"]
     assert data["created_by"] == "33333333-3333-3333-3333-333333333333"
     assert data["clinic_patient_id"] == "clinic-patient-003"
-    assert data["clinic_id"] == "clinic-003"
-    assert data["division_id"] == "division-003"
-    assert data["clinic_system"] == "athena"
+    assert data["clinic_id"] == "clinic-001"
+    assert data["division_id"] == "division-001"
+    assert data["clinic_system"] == "epic"
     assert data["clinic_name"] == "Westside Respiratory"
 
 

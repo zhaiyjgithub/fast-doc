@@ -24,6 +24,9 @@ async def _fake_current_user() -> CurrentPrincipal:
         id="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
         email="doctor@example.com",
         user_type="doctor",
+        clinic_id="clinic-123",
+        division_id="division-456",
+        clinic_system="athena",
     )
 
 
