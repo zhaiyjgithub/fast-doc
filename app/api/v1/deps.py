@@ -31,6 +31,9 @@ class CurrentPrincipal:
     email: str
     user_type: str          # "doctor" | "admin"
     provider_id: str | None = None   # populated only for doctor tokens
+    clinic_id: str | None = None
+    division_id: str | None = None
+    clinic_system: str | None = None
 
 
 async def get_current_user(
@@ -77,6 +80,9 @@ async def get_current_user(
         email=user.email,
         user_type="doctor",
         provider_id=str(user.provider_id) if user.provider_id else None,
+        clinic_id=payload.get("clinic_id") or None,
+        division_id=payload.get("division_id") or None,
+        clinic_system=payload.get("clinic_system") or None,
     )
 
 
