@@ -63,6 +63,25 @@ refresh_token — long-lived  (default 7 days)
 
 When the access token expires, exchange the refresh token for a new pair.
 
+### Access Token Payload
+
+The decoded JWT access token contains:
+
+```json
+{
+  "sub": "<user_id>",
+  "user_type": "doctor",
+  "provider_id": "<uuid>",
+  "clinic_id": "CLINIC_001",
+  "division_id": "DIV_A",
+  "clinic_system": "epic",
+  "exp": 1714000000,
+  "type": "access"
+}
+```
+
+> `clinic_id`, `division_id`, and `clinic_system` are omitted when the provider record does not have clinic context set. In that case, `GET /v1/patients` and `GET /v1/patients/search` return **403 Provider clinic context is incomplete** for doctor tokens.
+
 ### Access Control Matrix
 
 | Endpoint group | doctor | admin |
@@ -105,13 +124,24 @@ username=schen@emr.local&password=Doctor@2026!
     "token_type": "bearer",
     "user_type": "doctor",
     "user_id": "db807f15-b67e-43ca-9048-8932381f7e4e",
-    "provider_id": "6004a490-6323-4201-85b7-8b9a7bda52dd"
+    "provider_id": "6004a490-6323-4201-85b7-8b9a7bda52dd",
+    "clinic_id": "CLINIC_001",
+    "division_id": "DIV_A",
+    "clinic_system": "epic"
   }
 }
 ```
 
 > `provider_id` is the linked provider record for the logged-in doctor.  
 > Use it when creating encounters.
+
+**TokenResponse clinic fields**:
+
+| Field | Type | Description |
+|---|---|---|
+| `clinic_id` | string\|null | Clinic ID from provider profile |
+| `division_id` | string\|null | Division ID from provider profile |
+| `clinic_system` | string\|null | Clinic system identifier (e.g. `"epic"`) |
 
 **Error 401**: Invalid credentials.
 
@@ -129,7 +159,7 @@ Content-Type: application/json
 { "refresh_token": "eyJhbGci..." }
 ```
 
-**Response 200**: Same shape as `/v1/auth/login` (object under **`data`**).
+**Response 200**: Same shape as `/v1/auth/login` (object under **`data`**), including `clinic_id`, `division_id`, and `clinic_system` when present.
 
 ---
 
@@ -443,6 +473,10 @@ Authorization: Bearer <token>
 
 > Optional EMR linkage fields (`created_by`, `clinic_patient_id`, `clinic_id`, `division_id`, `clinic_system`, `clinic_name`) appear on every patient payload when present.
 
+> **Clinic scoping (doctor tokens):** Results are automatically filtered to patients whose `clinic_id`, `division_id`, and `clinic_system` match the authenticated provider's JWT claims. Any explicitly passed `clinic_id`/`division_id`/`clinic_system` query parameters are **ignored** for doctor tokens — the JWT values always win. Admin tokens see all patients and explicit filter params are respected.
+>
+> If the provider's JWT is missing any of the three clinic context fields, the endpoint returns **403 Provider clinic context is incomplete**.
+
 ### 7.2 Smart Search
 
 ```
@@ -468,6 +502,10 @@ Authorization: Bearer <token>
 | `page_size` | int | Items per page (default 20, max 100) |
 
 **Response 200**: Same shape as List Patients (`{ "data": { "items", "total", "page", "page_size" } }`).
+
+> **Clinic scoping (doctor tokens):** Results are automatically filtered to patients whose `clinic_id`, `division_id`, and `clinic_system` match the authenticated provider's JWT claims. Any explicitly passed `clinic_id`/`division_id`/`clinic_system` query parameters are **ignored** for doctor tokens — the JWT values always win. Admin tokens see all patients and explicit filter params are respected.
+>
+> If the provider's JWT is missing any of the three clinic context fields, the endpoint returns **403 Provider clinic context is incomplete**.
 
 **Examples**:
 ```
