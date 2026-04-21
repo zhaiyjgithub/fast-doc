@@ -80,8 +80,8 @@ async def test_generate_returns_202_with_task_id():
     assert data["status"] == "pending"
 
 
-async def test_poll_pending_task():
-    """GET /emr/task/{id} returns pending while task is still running."""
+async def test_poll_running_task():
+    """GET /emr/task/{id} returns running status while task is in progress."""
     with patch("app.api.v1.endpoints.emr.EmrTaskService") as MockSvc:
         mock_svc = MockSvc.return_value
         mock_svc.get = AsyncMock(return_value=_fake_task(status="running"))

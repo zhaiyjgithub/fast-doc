@@ -105,7 +105,7 @@ async def _run_emr_background(task_id: str, body: EMRGenerateRequest) -> None:
             return
 
         task.status = "running"
-        await db.flush()
+        await db.commit()
 
         svc = EMRService(db)
         try:
