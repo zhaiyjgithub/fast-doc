@@ -109,7 +109,7 @@ async def test_emr_generate_with_mocked_llm(db_session):
     """End-to-end EMR generation with all external calls mocked."""
     from datetime import datetime, timezone
 
-    from app.models.clinical import Encounter
+    from app.models.clinical import EmrNote, Encounter
     from app.models.patients import Patient
     from app.services.markdown_ingestion import MarkdownIngestionService
 
@@ -183,6 +183,7 @@ async def test_emr_generate_with_mocked_llm(db_session):
             patient_id=str(patient_uuid),
             transcript=transcript,
             request_id="emr-test-001",
+            source="voice",
         )
 
     assert state["soap_note"]["assessment"] == "COPD exacerbation, moderate"
@@ -195,6 +196,16 @@ async def test_emr_generate_with_mocked_llm(db_session):
     assert encounter_after.transcript_text == transcript
     assert encounter_after.status == "done"
     assert encounter_after.chief_complaint == "Shortness of breath"
+    emr_note_after = (
+        await db_session.execute(
+            select(EmrNote)
+            .where(EmrNote.encounter_id == encounter_uuid)
+            .order_by(EmrNote.created_at.desc())
+            .limit(1)
+        )
+    ).scalars().first()
+    assert emr_note_after is not None
+    assert emr_note_after.source == "voice"
 
 
 async def test_upsert_chief_complaint_updates_encounter_from_llm_summary():

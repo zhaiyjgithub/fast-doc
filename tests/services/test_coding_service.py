@@ -118,6 +118,21 @@ def test_rule_engine_cpt_valid():
     assert "99213" in codes
 
 
+def test_dedupe_by_code_keeps_highest_confidence_variant():
+    suggestions = [
+        {"code": "J18.9", "confidence": 0.80, "status": "suspected", "rationale": "short"},
+        {"code": "J18.9", "confidence": 0.95, "status": "present", "rationale": "much longer rationale"},
+        {"code": "R50.9", "confidence": 0.70, "status": "present", "rationale": "fever"},
+    ]
+    deduped = CodingService._dedupe_by_code(suggestions)
+    assert len(deduped) == 2
+    codes = [item["code"] for item in deduped]
+    assert codes.count("J18.9") == 1
+    assert "R50.9" in codes
+    j189 = next(item for item in deduped if item["code"] == "J18.9")
+    assert j189["confidence"] == 0.95
+
+
 # ------------------------------------------------------------------
 # CodingService — end-to-end with mocked LLM
 # ------------------------------------------------------------------

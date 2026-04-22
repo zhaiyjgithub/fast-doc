@@ -111,7 +111,7 @@ async def test_poll_running_task():
 
 
 async def test_poll_finished_task():
-    """GET /emr/task/{id} returns result when finished."""
+    """GET /emr/task/{id} returns finished status without embedding report content."""
     result = {
         "request_id": "req-1",
         "encounter_id": ENCOUNTER_ID,
@@ -132,7 +132,7 @@ async def test_poll_finished_task():
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "finished"
-    assert data["result"]["encounter_id"] == ENCOUNTER_ID
+    assert data.get("result") is None
 
 
 async def test_poll_failed_task():

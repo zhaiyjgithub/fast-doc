@@ -95,6 +95,15 @@ async def require_admin(
     return principal
 
 
+async def require_doctor(
+    principal: Annotated[CurrentPrincipal, Depends(get_current_user)],
+) -> CurrentPrincipal:
+    """Allow only provider (doctor) users."""
+    if principal.user_type != "doctor":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Doctor access required")
+    return principal
+
+
 async def require_doctor_or_admin(
     principal: Annotated[CurrentPrincipal, Depends(get_current_user)],
 ) -> CurrentPrincipal:

@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.api.v1.deps import CurrentPrincipal, require_doctor_or_admin
+from app.api.v1.deps import CurrentPrincipal, require_doctor
 from app.db.session import get_db
 from app.main import app
 
@@ -29,10 +29,10 @@ async def _fake_db():
 
 @pytest.fixture(autouse=True)
 def _override_dependencies():
-    app.dependency_overrides[require_doctor_or_admin] = _fake_current_user
+    app.dependency_overrides[require_doctor] = _fake_current_user
     app.dependency_overrides[get_db] = _fake_db
     yield
-    app.dependency_overrides.pop(require_doctor_or_admin, None)
+    app.dependency_overrides.pop(require_doctor, None)
     app.dependency_overrides.pop(get_db, None)
 
 

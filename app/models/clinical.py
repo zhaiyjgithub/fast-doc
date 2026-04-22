@@ -54,6 +54,7 @@ class EmrNote(Base):
     soap_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     note_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     conversation_duration_seconds: Mapped[int | None] = mapped_column(nullable=True)
+    source: Mapped[str] = mapped_column(String(32), default="unknown")
     context_trace_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     is_final: Mapped[bool] = mapped_column(Boolean, default=False)
     version: Mapped[int] = mapped_column(default=1)

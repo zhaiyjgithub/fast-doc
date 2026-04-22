@@ -8,7 +8,7 @@ from httpx import AsyncClient, ASGITransport
 
 from app.services.patient_service import PatientService
 from app.main import app as fastapi_app
-from app.api.v1.deps import get_current_user, CurrentPrincipal
+from app.api.v1.deps import require_doctor, CurrentPrincipal
 
 
 def _doctor_principal(clinic_id=None, division_id=None, clinic_system=None):
@@ -22,13 +22,6 @@ def _doctor_principal(clinic_id=None, division_id=None, clinic_system=None):
         clinic_system=clinic_system,
     )
 
-
-def _admin_principal():
-    return CurrentPrincipal(
-        id=str(uuid.uuid4()),
-        email="admin@test.com",
-        user_type="admin",
-    )
 
 
 def _make_mock_db():
@@ -104,14 +97,14 @@ async def test_list_patients_doctor_incomplete_context_returns_403():
     async def override_auth():
         return principal
 
-    fastapi_app.dependency_overrides[get_current_user] = override_auth
+    fastapi_app.dependency_overrides[require_doctor] = override_auth
     try:
         async with AsyncClient(
             transport=ASGITransport(app=fastapi_app), base_url="http://test"
         ) as client:
             resp = await client.get("/v1/patients")
     finally:
-        fastapi_app.dependency_overrides.pop(get_current_user, None)
+        fastapi_app.dependency_overrides.pop(require_doctor, None)
 
     assert resp.status_code == 403
     assert "clinic context" in resp.json()["detail"].lower()
@@ -124,13 +117,14 @@ async def test_search_patients_doctor_incomplete_context_returns_403():
     async def override_auth():
         return principal
 
-    fastapi_app.dependency_overrides[get_current_user] = override_auth
+    fastapi_app.dependency_overrides[require_doctor] = override_auth
     try:
         async with AsyncClient(
             transport=ASGITransport(app=fastapi_app), base_url="http://test"
         ) as client:
             resp = await client.get("/v1/patients/search")
     finally:
-        fastapi_app.dependency_overrides.pop(get_current_user, None)
+        fastapi_app.dependency_overrides.pop(require_doctor, None)
 
     assert resp.status_code == 403
+    assert "clinic context" in resp.json()["detail"].lower()

@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.api.v1.deps import CurrentPrincipal, require_doctor_or_admin
+from app.api.v1.deps import CurrentPrincipal, require_doctor
 from app.db.session import get_db
 from app.main import app
 
@@ -36,10 +36,10 @@ async def _fake_db():
 
 @pytest.fixture(autouse=True)
 def _override_dependencies():
-    app.dependency_overrides[require_doctor_or_admin] = _fake_current_user
+    app.dependency_overrides[require_doctor] = _fake_current_user
     app.dependency_overrides[get_db] = _fake_db
     yield
-    app.dependency_overrides.pop(require_doctor_or_admin, None)
+    app.dependency_overrides.pop(require_doctor, None)
     app.dependency_overrides.pop(get_db, None)
 
 
@@ -222,15 +222,33 @@ async def test_parse_demographics_creates_new_patient_when_no_match(async_client
     assert create_payload["demographics"]["phone"] == "888-555-5555"
 
 
-async def test_parse_demographics_requires_clinic_context(async_client):
-    with patch(
-        "app.api.v1.endpoints.patients.llm_adapter.chat",
-        new_callable=AsyncMock,
-        return_value="{}",
-    ):
-        response = await async_client.post(
-            "/v1/patients/parse-demographics",
-            json={"demographics_text": RAW_DEMOGRAPHICS_TEXT},
+async def test_parse_demographics_doctor_missing_jwt_clinic_context_returns_403(async_client):
+    """Doctor whose JWT lacks clinic context is rejected with 403, regardless of body fields."""
+    from app.main import app as fastapi_app  # noqa: PLC0415
+
+    async def _doctor_no_clinic() -> CurrentPrincipal:
+        return CurrentPrincipal(
+            id="bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+            email="doctor2@example.com",
+            user_type="doctor",
+            clinic_id=None,
+            division_id=None,
+            clinic_system=None,
         )
 
-    assert response.status_code == 422
+    fastapi_app.dependency_overrides[require_doctor] = _doctor_no_clinic
+    try:
+        with patch(
+            "app.api.v1.endpoints.patients.llm_adapter.chat",
+            new_callable=AsyncMock,
+            return_value="{}",
+        ):
+            response = await async_client.post(
+                "/v1/patients/parse-demographics",
+                json={"demographics_text": RAW_DEMOGRAPHICS_TEXT},
+            )
+    finally:
+        fastapi_app.dependency_overrides[require_doctor] = _fake_current_user
+
+    assert response.status_code == 403
+    assert "clinic context" in response.json()["detail"].lower()

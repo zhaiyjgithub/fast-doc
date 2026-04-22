@@ -5,13 +5,24 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.api.v1.deps import CurrentPrincipal, require_doctor_or_admin
+from app.api.v1.deps import CurrentPrincipal, require_doctor
 from app.db.session import get_db
 from app.main import app
 
+DOCTOR_CLINIC_ID = "clinic-xyz"
+DOCTOR_DIVISION_ID = "division-7"
+DOCTOR_CLINIC_SYSTEM = "epic"
+
 
 async def _fake_current_user() -> CurrentPrincipal:
-    return CurrentPrincipal(id="test-user", email="test@example.com", user_type="admin")
+    return CurrentPrincipal(
+        id="test-user",
+        email="doctor@example.com",
+        user_type="doctor",
+        clinic_id=DOCTOR_CLINIC_ID,
+        division_id=DOCTOR_DIVISION_ID,
+        clinic_system=DOCTOR_CLINIC_SYSTEM,
+    )
 
 
 async def _fake_db():
@@ -20,10 +31,10 @@ async def _fake_db():
 
 @pytest.fixture(autouse=True)
 def _override_dependencies():
-    app.dependency_overrides[require_doctor_or_admin] = _fake_current_user
+    app.dependency_overrides[require_doctor] = _fake_current_user
     app.dependency_overrides[get_db] = _fake_db
     yield
-    app.dependency_overrides.pop(require_doctor_or_admin, None)
+    app.dependency_overrides.pop(require_doctor, None)
     app.dependency_overrides.pop(get_db, None)
 
 
@@ -33,7 +44,8 @@ async def setup_test_db():
     yield
 
 
-async def test_search_parses_dob_and_clinic_filters(async_client):
+async def test_search_parses_dob_and_clinic_patient_id(async_client):
+    """clinic_id/division_id/clinic_system come from JWT; only clinic_patient_id is a free query param."""
     with patch(
         "app.api.v1.endpoints.patients.PatientService.search",
         new_callable=AsyncMock,
@@ -43,9 +55,6 @@ async def test_search_parses_dob_and_clinic_filters(async_client):
             "/v1/patients/search",
             params={
                 "clinic_patient_id": "cp-123",
-                "clinic_id": "clinic-xyz",
-                "division_id": "division-7",
-                "clinic_system": "epic",
                 "dob": "1988-04-09",
             },
         )
@@ -53,10 +62,9 @@ async def test_search_parses_dob_and_clinic_filters(async_client):
     assert response.status_code == 200
     search_kwargs = search_mock.await_args.kwargs
     assert search_kwargs["clinic_patient_id"] == "cp-123"
-    assert search_kwargs["clinic_id"] == "clinic-xyz"
-    assert search_kwargs["division_id"] == "division-7"
-    assert search_kwargs["clinic_system"] == "epic"
     assert search_kwargs["dob"] == date(1988, 4, 9)
+    # JWT clinic scope is always applied
+    assert search_kwargs["clinic_scope"] == (DOCTOR_CLINIC_ID, DOCTOR_DIVISION_ID, DOCTOR_CLINIC_SYSTEM)
 
 
 async def test_search_rejects_invalid_dob(async_client):

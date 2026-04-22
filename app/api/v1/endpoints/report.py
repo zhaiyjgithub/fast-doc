@@ -48,6 +48,7 @@ class EMRSummary(BaseModel):
     is_final: bool
     request_id: str | None
     conversation_duration_seconds: int | None = None
+    source: str | None = None
 
 
 class EncounterReport(BaseModel):
@@ -81,11 +82,16 @@ async def get_encounter_report(
             detail=f"No EMR note found for encounter {encounter_id}",
         )
 
-    # Coding suggestions for this encounter
+    # Coding suggestions for the latest generation only.
+    sugg_stmt = select(CodingSuggestion).where(CodingSuggestion.encounter_id == encounter_id)
+    if note.request_id:
+        sugg_stmt = sugg_stmt.where(CodingSuggestion.request_id == note.request_id)
+    elif note.created_at is not None:
+        # Legacy generations may have null request_id; use latest note timestamp as fallback scope.
+        sugg_stmt = sugg_stmt.where(CodingSuggestion.created_at >= note.created_at)
+
     sugg_rows = await db.execute(
-        select(CodingSuggestion)
-        .where(CodingSuggestion.encounter_id == encounter_id)
-        .order_by(CodingSuggestion.code_type, CodingSuggestion.rank)
+        sugg_stmt.order_by(CodingSuggestion.code_type, CodingSuggestion.rank)
     )
     suggestions = sugg_rows.scalars().all()
 
@@ -102,7 +108,12 @@ async def get_encounter_report(
 
     icd_list: list[CodeSuggestionItem] = []
     cpt_list: list[CodeSuggestionItem] = []
+    seen_code_keys: set[tuple[str, str]] = set()
     for s in suggestions:
+        code_key = (s.code_type, s.code.upper())
+        if code_key in seen_code_keys:
+            continue
+        seen_code_keys.add(code_key)
         ev_items = [
             EvidenceItem(evidence_route=e.evidence_route, excerpt=e.excerpt)
             for e in evidence_map.get(str(s.id), [])
@@ -136,6 +147,7 @@ async def get_encounter_report(
         is_final=note.is_final,
         request_id=note.request_id,
         conversation_duration_seconds=note.conversation_duration_seconds,
+        source=getattr(note, "source", None),
     )
 
     return EncounterReport(

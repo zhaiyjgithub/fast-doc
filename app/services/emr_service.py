@@ -118,6 +118,7 @@ class EMRService:
         top_k_patient: int = 5,
         top_k_guideline: int = 5,
         conversation_duration_seconds: int | None = None,
+        source: str | None = None,
     ) -> EMRGraphState:
         """Run the full DualRAG + EMR generation pipeline."""
         patient_uuid = uuid.UUID(patient_id)
@@ -187,6 +188,7 @@ class EMRService:
             soap_json=soap_note,
             note_text=emr_text,
             conversation_duration_seconds=conversation_duration_seconds,
+            source=(source or "unknown"),
             context_trace_json={
                 "provider_id": str(provider.id) if provider else None,
                 "provider_specialty": provider.specialty if provider else None,

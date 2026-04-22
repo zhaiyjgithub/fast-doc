@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.v1.deps import CurrentPrincipal, require_admin, require_doctor_or_admin
+from app.api.v1.deps import CurrentPrincipal, require_admin, require_doctor
 from app.api.v1.schemas import ApiResponse
 from app.core.security import decrypt
 from app.db.session import get_db
@@ -105,14 +105,17 @@ class PatientListResponse(BaseModel):
 
 class ParseDemographicsIn(BaseModel):
     demographics_text: str = Field(min_length=1)
-    clinic_id: str
-    division_id: str
-    clinic_system: str
+    # Required for doctors (overridden from JWT anyway); optional for admins.
+    clinic_id: str | None = None
+    division_id: str | None = None
+    clinic_system: str | None = None
     clinic_name: str | None = None
 
     @field_validator("clinic_id", "division_id", "clinic_system")
     @classmethod
-    def _validate_non_empty(cls, value: str) -> str:
+    def _validate_non_empty(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         cleaned = value.strip()
         if not cleaned:
             raise ValueError("must be a non-empty string")
@@ -287,32 +290,17 @@ async def search_patients(
     mrn: str | None = Query(None),
     patient_id: str | None = Query(None),
     clinic_patient_id: str | None = Query(None),
-    clinic_id: str | None = Query(None),
-    division_id: str | None = Query(None),
-    clinic_system: str | None = Query(None),
     language: str | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    principal: "CurrentPrincipal" = Depends(require_doctor_or_admin),
+    principal: "CurrentPrincipal" = Depends(require_doctor),
 ) -> ApiResponse[PatientListResponse]:
     svc = PatientService(db)
-
-    if principal.user_type == "doctor":
-        if not (principal.clinic_id and principal.division_id and principal.clinic_system):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Provider clinic context is incomplete",
-            )
-        clinic_scope: tuple[str, str, str] | None = (
-            principal.clinic_id,
-            principal.division_id,
-            principal.clinic_system,
-        )
-        # JWT scope wins — ignore any caller-supplied clinic params
-        clinic_id = division_id = clinic_system = None
-    else:
-        clinic_scope = None  # Admin: use explicit query params as-is
+    jwt_clinic_id, jwt_division_id, jwt_clinic_system = _require_doctor_clinic_context(principal)
+    # JWT scope is authoritative — ignore any caller-supplied loose clinic params
+    clinic_scope: tuple[str, str, str] | None = (jwt_clinic_id, jwt_division_id, jwt_clinic_system)
+    clinic_id = division_id = clinic_system = None
 
     items, total = await svc.search(
         q=q,
@@ -344,26 +332,17 @@ async def list_patients(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    principal: "CurrentPrincipal" = Depends(require_doctor_or_admin),
+    principal: "CurrentPrincipal" = Depends(require_doctor),
 ) -> ApiResponse[PatientListResponse]:
     svc = PatientService(db)
-
-    if principal.user_type == "doctor":
-        if not (principal.clinic_id and principal.division_id and principal.clinic_system):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Provider clinic context is incomplete",
-            )
-        items, total = await svc.list_patients(
-            page=page,
-            page_size=page_size,
-            clinic_id=principal.clinic_id,
-            division_id=principal.division_id,
-            clinic_system=principal.clinic_system,
-        )
-    else:
-        items, total = await svc.list_patients(page=page, page_size=page_size)
-
+    clinic_id, division_id, clinic_system = _require_doctor_clinic_context(principal)
+    items, total = await svc.list_patients(
+        page=page,
+        page_size=page_size,
+        clinic_id=clinic_id,
+        division_id=division_id,
+        clinic_system=clinic_system,
+    )
     return ApiResponse(
         data=PatientListResponse(
             items=[_build_patient_out(p) for p in items],
@@ -378,19 +357,15 @@ async def list_patients(
 async def create_patient(
     body: PatientCreate,
     db: AsyncSession = Depends(get_db),
-    principal: "CurrentPrincipal" = Depends(require_doctor_or_admin),
+    principal: "CurrentPrincipal" = Depends(require_doctor),
 ) -> ApiResponse[PatientOut]:
     svc = PatientService(db)
+    clinic_id, division_id, clinic_system = _require_doctor_clinic_context(principal)
     data = body.model_dump()
-    if principal.user_type == "admin":
-        data["created_by"] = str(body.created_by) if body.created_by is not None else None
-    else:
-        # Doctor: verify clinic context and force JWT clinic values — cannot create outside own clinic
-        clinic_id, division_id, clinic_system = _require_doctor_clinic_context(principal)
-        data["created_by"] = principal.id
-        data["clinic_id"] = clinic_id
-        data["division_id"] = division_id
-        data["clinic_system"] = clinic_system
+    data["created_by"] = principal.id
+    data["clinic_id"] = clinic_id
+    data["division_id"] = division_id
+    data["clinic_system"] = clinic_system
     if data.get("demographics"):
         # strip fields with no DB column
         data["demographics"].pop("address_line2", None)
@@ -403,19 +378,14 @@ async def create_patient(
 async def parse_demographics(
     body: ParseDemographicsIn,
     db: AsyncSession = Depends(get_db),
-    principal: "CurrentPrincipal" = Depends(require_doctor_or_admin),
+    principal: "CurrentPrincipal" = Depends(require_doctor),
 ) -> ApiResponse[ParseDemographicsResultOut]:
     source_text = body.demographics_text.strip()
     if not source_text:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="demographics_text is required")
 
-    # For doctors, JWT clinic values are authoritative — override any body-supplied values.
-    if principal.user_type == "doctor":
-        effective_clinic_id, effective_division_id, effective_clinic_system = _require_doctor_clinic_context(principal)
-    else:
-        effective_clinic_id = body.clinic_id
-        effective_division_id = body.division_id
-        effective_clinic_system = body.clinic_system
+    # JWT clinic values are authoritative — body clinic fields are ignored.
+    effective_clinic_id, effective_division_id, effective_clinic_system = _require_doctor_clinic_context(principal)
 
     system_prompt = (
         "You are a medical intake parser. Convert flattened EMR demographics text into JSON. "
@@ -470,7 +440,7 @@ async def parse_demographics(
         "division_id": effective_division_id,
         "clinic_system": effective_clinic_system,
         "clinic_name": body.clinic_name,
-        "created_by": None if principal.user_type == "admin" else principal.id,
+        "created_by": principal.id,
     }
     if parsed.demographics:
         create_payload["demographics"] = parsed.demographics.model_dump()
@@ -488,15 +458,14 @@ async def parse_demographics(
 async def get_patient(
     patient_id: str,
     db: AsyncSession = Depends(get_db),
-    principal: "CurrentPrincipal" = Depends(require_doctor_or_admin),
+    principal: "CurrentPrincipal" = Depends(require_doctor),
 ) -> ApiResponse[PatientOut]:
     svc = PatientService(db)
+    _require_doctor_clinic_context(principal)
     patient = await svc.get(patient_id)
     if patient is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
-    if principal.user_type == "doctor":
-        _require_doctor_clinic_context(principal)
-        _assert_patient_in_scope(patient, principal)
+    _assert_patient_in_scope(patient, principal)
     return ApiResponse(data=_build_patient_out(patient))
 
 
@@ -505,16 +474,15 @@ async def update_patient(
     patient_id: str,
     body: PatientUpdate,
     db: AsyncSession = Depends(get_db),
-    principal: "CurrentPrincipal" = Depends(require_doctor_or_admin),
+    principal: "CurrentPrincipal" = Depends(require_doctor),
 ) -> ApiResponse[PatientOut]:
     svc = PatientService(db)
-    if principal.user_type == "doctor":
-        _require_doctor_clinic_context(principal)
-        # Fetch first to verify ownership before applying changes
-        existing = await svc.get(patient_id)
-        if existing is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
-        _assert_patient_in_scope(existing, principal)
+    _require_doctor_clinic_context(principal)
+    # Fetch first to verify ownership before applying changes
+    existing = await svc.get(patient_id)
+    if existing is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
+    _assert_patient_in_scope(existing, principal)
     patient = await svc.update(patient_id, body.model_dump(exclude_unset=True))
     if patient is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")

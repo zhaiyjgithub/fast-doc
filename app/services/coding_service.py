@@ -222,6 +222,7 @@ class CodingService:
             "Return a JSON array of objects with exactly these keys:\n"
             "  code        — the selected code (string)\n"
             "  condition   — the clinical finding or reason that triggered this code (short phrase, e.g. 'HTN', 'knee replacement')\n"
+            "  description — concise code title/description in English (string; empty only if truly unknown)\n"
             "  confidence  — float 0-1\n"
             "  status      — 'present' if explicitly documented, 'suspected' if inferred from medications or context\n"
             "  rationale   — concise English explanation citing clinical evidence\n"
@@ -245,13 +246,19 @@ class CodingService:
         )
 
         suggestions = self._parse_code_suggestions(raw)
-        validated = self._apply_rule_engine(suggestions, code_type)[:top_k]
+        validated = self._dedupe_by_code(
+            self._apply_rule_engine(suggestions, code_type)
+        )
         # Enrich each suggestion with the catalog description (matched by normalised code)
         desc_map = {self._normalise_code(c["code"]): c["description"] for c in candidates}
         for s in validated:
             if not s.get("description"):
-                s["description"] = desc_map.get(self._normalise_code(s["code"]), "")
-        return validated
+                s["description"] = (
+                    desc_map.get(self._normalise_code(s["code"]))
+                    or s.get("condition")
+                    or ""
+                )
+        return validated[:top_k]
 
     # ------------------------------------------------------------------
     # Response parsing
@@ -276,6 +283,43 @@ class CodingService:
     def _normalise_code(code: str) -> str:
         """Strip dots so catalog lookup works regardless of dot-notation."""
         return code.upper().replace(".", "")
+
+    @classmethod
+    def _dedupe_by_code(cls, suggestions: list[dict]) -> list[dict]:
+        """Keep one suggestion per code, preferring higher confidence and richer content."""
+        deduped: dict[str, dict] = {}
+        order: list[str] = []
+        for item in suggestions:
+            code = cls._normalise_code(str(item.get("code", "")))
+            if not code:
+                continue
+            if code not in deduped:
+                deduped[code] = item
+                order.append(code)
+                continue
+
+            existing = deduped[code]
+            existing_conf = float(existing.get("confidence") or 0.0)
+            item_conf = float(item.get("confidence") or 0.0)
+            if item_conf > existing_conf:
+                deduped[code] = item
+                continue
+            if item_conf < existing_conf:
+                continue
+
+            # Same confidence: prefer explicit "present" status and longer rationale.
+            existing_status = str(existing.get("status", "")).lower()
+            item_status = str(item.get("status", "")).lower()
+            if existing_status != "present" and item_status == "present":
+                deduped[code] = item
+                continue
+
+            existing_rationale_len = len(str(existing.get("rationale") or ""))
+            item_rationale_len = len(str(item.get("rationale") or ""))
+            if item_rationale_len > existing_rationale_len:
+                deduped[code] = item
+
+        return [deduped[code] for code in order]
 
     @staticmethod
     def _apply_rule_engine(suggestions: list[dict], code_type: str) -> list[dict]:

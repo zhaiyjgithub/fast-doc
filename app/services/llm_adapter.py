@@ -20,21 +20,30 @@ if TYPE_CHECKING:
 
 
 def _make_client() -> AsyncOpenAI:
+    api_key = settings.QWEN_API_KEY
+    if not api_key:
+        raise RuntimeError(
+            "QWEN_API_KEY is not set. "
+            "Add it to your .env file and restart the server."
+        )
     return AsyncOpenAI(
-        api_key=settings.QWEN_API_KEY,
+        api_key=api_key,
         base_url=settings.QWEN_BASE_URL,
         http_client=httpx.AsyncClient(timeout=60.0),
     )
 
 
-# Module-level client shared across calls (one per process)
+# Module-level client — recreated whenever the key changes between restarts.
 _client: AsyncOpenAI | None = None
+_client_api_key: str | None = None
 
 
 def get_client() -> AsyncOpenAI:
-    global _client
-    if _client is None:
+    global _client, _client_api_key
+    current_key = settings.QWEN_API_KEY
+    if _client is None or _client_api_key != current_key:
         _client = _make_client()
+        _client_api_key = current_key
     return _client
 
 

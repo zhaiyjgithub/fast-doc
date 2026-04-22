@@ -4,21 +4,46 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import and_, desc, func, select
+from sqlalchemy import and_, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.v1.deps import CurrentPrincipal, require_doctor_or_admin
 from app.db.session import AsyncSessionLocal, get_db
 from app.models.clinical import EmrNote, Encounter
 from app.models.coding import CodingSuggestion
+from app.models.patients import Patient
 from app.services.emr_service import EMRService
 
 router = APIRouter(tags=["encounters"])
+
+
+# ---------------------------------------------------------------------------
+# Query parsing helpers
+# ---------------------------------------------------------------------------
+
+
+def _parse_query_date(value: str) -> date | None:
+    raw = value.strip()
+    if not raw:
+        return None
+
+    # ISO format: YYYY-MM-DD
+    try:
+        return date.fromisoformat(raw)
+    except ValueError:
+        pass
+
+    # US format: MM/DD/YYYY
+    try:
+        return datetime.strptime(raw, "%m/%d/%Y").date()
+    except ValueError:
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -53,6 +78,12 @@ class EncounterOut(BaseModel):
     has_transcript: bool = False
     transcript_text: str | None = None
     latest_emr: dict | None = None
+    emr_source: str | None = None
+    patient_first_name: str | None = None
+    patient_last_name: str | None = None
+    patient_date_of_birth: date | None = None
+    patient_gender: str | None = None
+    patient_display_id: str | None = None
 
 
 class TranscriptResponse(BaseModel):
@@ -93,6 +124,7 @@ async def _background_generate_emr(
                 transcript=transcript,
                 request_id=f"bg-{encounter_id[:8]}",
                 conversation_duration_seconds=conversation_duration_seconds,
+                source="voice",
             )
             await bg_db.commit()
         except Exception:
@@ -113,6 +145,11 @@ async def _background_generate_emr(
 
 
 def _encounter_to_out(enc: Encounter, latest_emr_note: EmrNote | None) -> EncounterOut:
+    patient = getattr(enc, "patient", None)
+    patient_display_id: str | None = None
+    if patient is not None:
+        patient_display_id = patient.clinic_patient_id or patient.mrn
+
     return EncounterOut(
         id=str(enc.id),
         patient_id=str(enc.patient_id),
@@ -124,6 +161,12 @@ def _encounter_to_out(enc: Encounter, latest_emr_note: EmrNote | None) -> Encoun
         has_transcript=bool(enc.transcript_text),
         transcript_text=enc.transcript_text,
         latest_emr=latest_emr_note.soap_json if latest_emr_note else None,
+        emr_source=latest_emr_note.source if latest_emr_note else None,
+        patient_first_name=getattr(patient, "first_name", None),
+        patient_last_name=getattr(patient, "last_name", None),
+        patient_date_of_birth=getattr(patient, "date_of_birth", None),
+        patient_gender=getattr(patient, "gender", None),
+        patient_display_id=patient_display_id,
     )
 
 
@@ -172,7 +215,11 @@ async def _get_encounter_or_404(db: AsyncSession, encounter_id: str) -> Encounte
         enc_uuid = uuid.UUID(encounter_id)
     except ValueError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Encounter not found")
-    result = await db.execute(select(Encounter).where(Encounter.id == enc_uuid))
+    result = await db.execute(
+        select(Encounter)
+        .options(selectinload(Encounter.patient))
+        .where(Encounter.id == enc_uuid)
+    )
     enc = result.scalars().first()
     if enc is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Encounter not found")
@@ -234,7 +281,7 @@ async def list_encounters(
     """List encounters ordered by encounter_time DESC with optional UTC today filter."""
     offset = (page - 1) * page_size
 
-    statement = select(Encounter)
+    statement = select(Encounter).options(selectinload(Encounter.patient))
     if today_only:
         day_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
         next_day_start = day_start + timedelta(days=1)
@@ -242,6 +289,84 @@ async def list_encounters(
             Encounter.encounter_time >= day_start,
             Encounter.encounter_time < next_day_start,
         )
+
+    result = await db.execute(
+        statement
+        .order_by(desc(Encounter.encounter_time), desc(Encounter.id))
+        .offset(offset)
+        .limit(page_size)
+    )
+    encounters = result.scalars().all()
+    latest_notes_by_encounter = await _get_latest_emr_notes_by_encounter_ids(
+        db,
+        [enc.id for enc in encounters],
+    )
+    return [
+        _encounter_to_out(enc, latest_notes_by_encounter.get(enc.id))
+        for enc in encounters
+    ]
+
+
+@router.get(
+    "/encounters/search",
+    response_model=list[EncounterOut],
+)
+async def search_encounters(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _user: Annotated["CurrentPrincipal", Depends(require_doctor_or_admin)],
+    q: str | None = Query(None),
+    name: str | None = Query(None),
+    dob: date | None = Query(None),
+    mrn: str | None = Query(None),
+    patient_id: str | None = Query(None),
+    clinic_patient_id: str | None = Query(None),
+    language: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+) -> list[EncounterOut]:
+    """Search encounters by patient attributes with pagination."""
+    offset = (page - 1) * page_size
+    q_date = _parse_query_date(q) if q else None
+
+    patient_uuid: uuid.UUID | None = None
+    if patient_id:
+        try:
+            patient_uuid = uuid.UUID(patient_id)
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid patient_id")
+
+    statement = (
+        select(Encounter)
+        .join(Patient, Encounter.patient_id == Patient.id)
+        .options(selectinload(Encounter.patient))
+        .where(Patient.is_active == True)  # noqa: E712
+    )
+
+    if patient_uuid:
+        statement = statement.where(Patient.id == patient_uuid)
+    if mrn:
+        statement = statement.where(Patient.mrn.ilike(f"{mrn}%"))
+    if clinic_patient_id:
+        statement = statement.where(Patient.clinic_patient_id == clinic_patient_id)
+    if dob:
+        statement = statement.where(Patient.date_of_birth == dob)
+    if name:
+        full_name = func.concat(Patient.first_name, " ", Patient.last_name)
+        statement = statement.where(full_name.ilike(f"%{name}%"))
+    if language:
+        statement = statement.where(Patient.primary_language == language)
+    if q:
+        if q_date is not None:
+            statement = statement.where(Patient.date_of_birth == q_date)
+        else:
+            pattern = f"%{q}%"
+            statement = statement.where(
+                or_(
+                    Patient.first_name.ilike(pattern),
+                    Patient.last_name.ilike(pattern),
+                    Patient.mrn.ilike(pattern),
+                )
+            )
 
     result = await db.execute(
         statement
@@ -280,6 +405,7 @@ async def list_patient_encounters(
     offset = (page - 1) * page_size
     result = await db.execute(
         select(Encounter)
+        .options(selectinload(Encounter.patient))
         .where(Encounter.patient_id == patient_uuid)
         .order_by(desc(Encounter.encounter_time), desc(Encounter.id))
         .offset(offset)
