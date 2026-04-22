@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.api.v1.endpoints.analytics import router as analytics_router
 from app.api.v1.endpoints.admin_auth import router as admin_auth_router
 from app.api.v1.endpoints.admin_users import router as admin_users_router
 from app.api.v1.endpoints.auth import router as auth_router
@@ -20,6 +21,7 @@ router.include_router(auth_router)
 router.include_router(admin_auth_router)
 router.include_router(admin_users_router)
 
+router.include_router(analytics_router)
 router.include_router(rag_router)
 router.include_router(emr_router)
 router.include_router(report_router)
