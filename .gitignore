@@ -16,3 +16,7 @@ wheels/
 
 # Local git worktrees
 .worktrees/
+
+# Clinical guideline PDFs — large binary files, not tracked in git
+docs/guidelines/
+

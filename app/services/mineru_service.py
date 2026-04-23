@@ -35,7 +35,7 @@ class MinerUService:
 
     async def extract_from_url(self, url: str) -> str:
         """Submit a remote URL for extraction; return full markdown text."""
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=30.0, verify=False) as client:
             resp = await client.post(
                 settings.MINERU_SINGLE_URL,
                 headers=self._headers,
@@ -60,7 +60,7 @@ class MinerUService:
 
     async def extract_local_files(self, file_paths: list[Path]) -> list[str]:
         """Upload local PDFs via pre-signed OSS URLs; return list of markdown texts."""
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=60.0, verify=False) as client:
             # Step 1: Request batch upload URLs
             resp = await client.post(
                 settings.MINERU_BATCH_UPLOAD_URL,
@@ -84,7 +84,7 @@ class MinerUService:
             raise MinerUError(f"No file upload URLs returned: {batch_data}")
 
         # Step 2: Upload each file to its pre-signed URL via PUT
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=120.0, verify=False) as client:
             for path, put_url in zip(file_paths, raw_urls):
                 if not put_url:
                     raise MinerUError(f"Missing pre-signed URL for {path.name}")
@@ -112,7 +112,7 @@ class MinerUService:
         """Poll single-task endpoint until done; return full_zip_url."""
         poll_url = settings.MINERU_SINGLE_POLL_URL.format(task_id=task_id)
         deadline = asyncio.get_event_loop().time() + settings.MINERU_MAX_WAIT
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=30.0, verify=False) as client:
             while asyncio.get_event_loop().time() < deadline:
                 await asyncio.sleep(settings.MINERU_POLL_INTERVAL)
                 resp = await client.get(poll_url, headers=self._headers)
@@ -143,7 +143,7 @@ class MinerUService:
         poll_url = settings.MINERU_BATCH_POLL_URL.format(batch_id=batch_id)
         deadline = asyncio.get_event_loop().time() + settings.MINERU_MAX_WAIT
         last_states: list[str] = []
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=30.0, verify=False) as client:
             while asyncio.get_event_loop().time() < deadline:
                 await asyncio.sleep(settings.MINERU_POLL_INTERVAL)
                 resp = await client.get(poll_url, headers=self._headers)
@@ -175,7 +175,7 @@ class MinerUService:
 
     async def _download_full_md(self, zip_url: str) -> str:
         """Download the result ZIP and extract the ``full.md`` file contents."""
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=120.0, verify=False) as client:
             resp = await client.get(zip_url)
             resp.raise_for_status()
             zip_bytes = resp.content
