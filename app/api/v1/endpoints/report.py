@@ -49,6 +49,7 @@ class EMRSummary(BaseModel):
     request_id: str | None
     conversation_duration_seconds: int | None = None
     source: str | None = None
+    updated_at: str | None = None
 
 
 class EncounterReport(BaseModel):
@@ -148,6 +149,7 @@ async def get_encounter_report(
         request_id=note.request_id,
         conversation_duration_seconds=note.conversation_duration_seconds,
         source=getattr(note, "source", None),
+        updated_at=note.updated_at.isoformat() if getattr(note, "updated_at", None) else None,
     )
 
     return EncounterReport(

@@ -79,6 +79,7 @@ class EncounterOut(BaseModel):
     transcript_text: str | None = None
     latest_emr: dict | None = None
     emr_source: str | None = None
+    emr_updated_at: datetime | None = None
     patient_first_name: str | None = None
     patient_last_name: str | None = None
     patient_date_of_birth: date | None = None
@@ -162,6 +163,7 @@ def _encounter_to_out(enc: Encounter, latest_emr_note: EmrNote | None) -> Encoun
         transcript_text=enc.transcript_text,
         latest_emr=latest_emr_note.soap_json if latest_emr_note else None,
         emr_source=latest_emr_note.source if latest_emr_note else None,
+        emr_updated_at=getattr(latest_emr_note, "updated_at", None) if latest_emr_note else None,
         patient_first_name=getattr(patient, "first_name", None),
         patient_last_name=getattr(patient, "last_name", None),
         patient_date_of_birth=getattr(patient, "date_of_birth", None),

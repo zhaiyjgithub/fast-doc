@@ -118,6 +118,20 @@ def dual_rag_retrieval_query(transcript: str, provider_context: str | None) -> s
     return f"{t}\n\n{p}"
 
 
+def normalize_emr_source_for_storage(source: str | None) -> str:
+    """Value stored on ``EmrNote.source`` (max 32 chars, lowercase).
+
+    Legacy clients may still send ``paste``; it is stored as ``manual`` (typed/pasted
+    transcript as opposed to voice capture).
+    """
+    s = (source or "").strip().lower()
+    if not s:
+        return "unknown"
+    if s == "paste":
+        return "manual"
+    return s[:32]
+
+
 class EMRService:
     def __init__(self, db: "AsyncSession") -> None:
         self.db = db
@@ -212,7 +226,7 @@ class EMRService:
             soap_json=soap_note,
             note_text=emr_text,
             conversation_duration_seconds=conversation_duration_seconds,
-            source=(source or "unknown"),
+            source=normalize_emr_source_for_storage(source),
             context_trace_json={
                 "provider_id": str(provider.id) if provider else None,
                 "provider_specialty": provider.specialty if provider else None,

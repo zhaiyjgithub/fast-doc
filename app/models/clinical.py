@@ -59,6 +59,9 @@ class EmrNote(Base):
     is_final: Mapped[bool] = mapped_column(Boolean, default=False)
     version: Mapped[int] = mapped_column(default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
     encounter: Mapped["Encounter"] = relationship("Encounter", back_populates="emr_notes")
 

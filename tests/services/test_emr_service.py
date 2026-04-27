@@ -8,7 +8,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy import select
 
-from app.services.emr_service import EMRService, build_system_prompt, dual_rag_retrieval_query
+from app.services.emr_service import (
+    EMRService,
+    build_system_prompt,
+    dual_rag_retrieval_query,
+    normalize_emr_source_for_storage,
+)
 from app.services.guideline_rag import GuidelineRAGService
 from app.services.patient_rag import PatientRAGService
 
@@ -47,6 +52,16 @@ def test_build_system_prompt_bullet_style():
         prompt_style="bullet",
     )
     assert "bullet" in prompt.lower()
+
+
+def test_normalize_emr_source_for_storage():
+    assert normalize_emr_source_for_storage(None) == "unknown"
+    assert normalize_emr_source_for_storage("") == "unknown"
+    assert normalize_emr_source_for_storage("  ") == "unknown"
+    assert normalize_emr_source_for_storage("paste") == "manual"
+    assert normalize_emr_source_for_storage("PASTE") == "manual"
+    assert normalize_emr_source_for_storage("voice") == "voice"
+    assert normalize_emr_source_for_storage("manual") == "manual"
 
 
 def test_dual_rag_retrieval_query_optional_provider():

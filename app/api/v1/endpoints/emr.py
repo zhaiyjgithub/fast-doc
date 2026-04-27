@@ -36,7 +36,11 @@ class EMRGenerateRequest(BaseModel):
     top_k_patient: int = 5
     top_k_guideline: int = 5
     conversation_duration_seconds: int | None = Field(default=None, ge=0)
-    source: str | None = None
+    source: str | None = Field(
+        default=None,
+        description='EMR input channel: e.g. "voice" (recording) or "manual" (typed/pasted). '
+        'Legacy value "paste" is accepted and stored as "manual".',
+    )
 
 
 class EMRTaskSubmittedResponse(BaseModel):

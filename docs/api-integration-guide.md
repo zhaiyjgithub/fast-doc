@@ -944,6 +944,8 @@ Returns the complete clinical report including the EMR note text, all coding sug
 
 `emr.conversation_duration_seconds` is included when the latest EMR note has a stored conversation duration.
 
+`emr.updated_at` is an ISO 8601 timestamp for the `emr_notes` row (initially the same moment as `generated_at` / `created_at`; later updates if the note is modified). Encounter list items also expose `emr_updated_at` on each encounter object.
+
 ---
 
 ## 10. AI EMR Generation (Direct) — `/v1/emr`

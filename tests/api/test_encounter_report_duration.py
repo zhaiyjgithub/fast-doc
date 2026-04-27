@@ -45,6 +45,7 @@ def _override_dependencies(fake_db):
 async def test_get_encounter_report_returns_conversation_duration(async_client, fake_db):
     encounter_id = str(uuid4())
     note_id = uuid4()
+    note_ts = datetime.now(timezone.utc)
     note = SimpleNamespace(
         id=note_id,
         soap_json={
@@ -58,7 +59,8 @@ async def test_get_encounter_report_returns_conversation_duration(async_client, 
         request_id="req-report-001",
         conversation_duration_seconds=185,
         source="voice",
-        created_at=datetime.now(timezone.utc),
+        created_at=note_ts,
+        updated_at=note_ts,
     )
     fake_db.execute.side_effect = [
         _scalar_result(first_item=note),
@@ -73,6 +75,7 @@ async def test_get_encounter_report_returns_conversation_duration(async_client, 
     assert body["emr"]["note_id"] == str(note_id)
     assert body["emr"]["conversation_duration_seconds"] == 185
     assert body["emr"]["source"] == "voice"
+    assert body["emr"]["updated_at"] == note_ts.isoformat()
 
 
 async def test_get_encounter_report_uses_latest_note_duration(async_client, fake_db):
@@ -94,7 +97,7 @@ async def test_get_encounter_report_uses_latest_note_duration(async_client, fake
         is_final=True,
         request_id="req-report-new",
         conversation_duration_seconds=305,
-        source="paste",
+        source="manual",
         created_at=datetime(2026, 4, 20, 10, 30, tzinfo=timezone.utc),
     )
     seeded_notes = [older_note, newer_note]
@@ -110,7 +113,7 @@ async def test_get_encounter_report_uses_latest_note_duration(async_client, fake
     body = response.json()
     assert body["emr"]["note_id"] == str(latest_note.id)
     assert body["emr"]["conversation_duration_seconds"] == 305
-    assert body["emr"]["source"] == "paste"
+    assert body["emr"]["source"] == "manual"
 
 
 async def test_get_encounter_report_latest_note_with_null_duration_returns_null(
