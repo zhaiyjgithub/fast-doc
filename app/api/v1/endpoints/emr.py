@@ -27,6 +27,11 @@ class EMRGenerateRequest(BaseModel):
     patient_id: str
     provider_id: str | None = None
     transcript: str
+    provider_context: str | None = Field(
+        default=None,
+        max_length=16_000,
+        description="Optional provider notes (not the visit transcript); included in the EMR prompt.",
+    )
     request_id: str | None = None
     top_k_patient: int = 5
     top_k_guideline: int = 5
@@ -95,6 +100,7 @@ async def _run_emr_background(task_id: str, body: EMRGenerateRequest) -> None:
                 patient_id=body.patient_id,
                 provider_id=body.provider_id,
                 transcript=body.transcript,
+                provider_context=body.provider_context,
                 request_id=body.request_id,
                 top_k_patient=body.top_k_patient,
                 top_k_guideline=body.top_k_guideline,

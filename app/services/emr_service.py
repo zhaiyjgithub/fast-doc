@@ -103,6 +103,21 @@ def build_system_prompt(
 # EMR Service
 # ---------------------------------------------------------------------------
 
+
+def dual_rag_retrieval_query(transcript: str, provider_context: str | None) -> str:
+    """Build the text used for patient + guideline embedding retrieval.
+
+    ``provider_context`` may include facts not spoken in the visit (e.g. information the
+    patient added after the recorded conversation). It is concatenated with the transcript
+    so both dual-RAG queries align with the full clinical picture shown to the LLM.
+    """
+    t = transcript.strip()
+    p = (provider_context or "").strip()
+    if not p:
+        return t
+    return f"{t}\n\n{p}"
+
+
 class EMRService:
     def __init__(self, db: "AsyncSession") -> None:
         self.db = db
@@ -114,6 +129,7 @@ class EMRService:
         patient_id: str,
         provider_id: str | None = None,
         transcript: str,
+        provider_context: str | None = None,
         request_id: str | None = None,
         top_k_patient: int = 5,
         top_k_guideline: int = 5,
@@ -130,10 +146,12 @@ class EMRService:
         # 1. Load provider context
         provider = await self._load_provider(provider_id)
 
+        rag_query = dual_rag_retrieval_query(transcript, provider_context)
+
         # 2. Patient RAG
         patient_rag = PatientRAGService(self.db)
         patient_chunks = await patient_rag.retrieve(
-            query=transcript,
+            query=rag_query,
             patient_id=patient_uuid,
             top_k=top_k_patient,
             request_id=request_id,
@@ -142,7 +160,7 @@ class EMRService:
         # 3. Guideline RAG
         guideline_rag = GuidelineRAGService(self.db)
         guideline_chunks = await guideline_rag.retrieve(
-            query=transcript,
+            query=rag_query,
             top_k=top_k_guideline,
             request_id=request_id,
         )
@@ -160,7 +178,13 @@ class EMRService:
 
         # 6. Generate SOAP note
         redacted_transcript = redact_phi(transcript)
+        ctx = (provider_context or "").strip()
+        redacted_provider = redact_phi(ctx) if ctx else ""
+        provider_preamble = (
+            f"## Provider-supplied context\n{redacted_provider}\n\n" if redacted_provider else ""
+        )
         user_message = (
+            f"{provider_preamble}"
             f"## Encounter Transcript\n{redacted_transcript}\n\n"
             f"## Clinical Context\n{merged_context}\n\n"
             "Generate a SOAP note for this encounter as JSON."
@@ -196,6 +220,8 @@ class EMRService:
                 "provider_prompt_style": provider.prompt_style if provider else "standard",
                 "patient_chunks_retrieved": len(patient_chunks),
                 "guideline_chunks_retrieved": len(guideline_chunks),
+                "provider_context_chars": len(redacted_provider),
+                "rag_query_includes_provider_context": bool((provider_context or "").strip()),
             },
             is_final=False,
             version=1,

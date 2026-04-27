@@ -8,7 +8,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy import select
 
-from app.services.emr_service import EMRService, build_system_prompt
+from app.services.emr_service import EMRService, build_system_prompt, dual_rag_retrieval_query
+from app.services.guideline_rag import GuidelineRAGService
+from app.services.patient_rag import PatientRAGService
 
 
 # ---------------------------------------------------------------------------
@@ -45,6 +47,15 @@ def test_build_system_prompt_bullet_style():
         prompt_style="bullet",
     )
     assert "bullet" in prompt.lower()
+
+
+def test_dual_rag_retrieval_query_optional_provider():
+    assert dual_rag_retrieval_query("  visit text  ", None) == "visit text"
+    assert dual_rag_retrieval_query("visit", "   ") == "visit"
+    merged = dual_rag_retrieval_query("Patient reports cough.", "Post-visit: patient mentioned new rash.")
+    assert merged.startswith("Patient reports cough.")
+    assert "Post-visit:" in merged
+    assert "\n\n" in merged
 
 
 def test_build_system_prompt_unknown_specialty():
@@ -206,6 +217,251 @@ async def test_emr_generate_with_mocked_llm(db_session):
     ).scalars().first()
     assert emr_note_after is not None
     assert emr_note_after.source == "voice"
+
+
+async def test_emr_generate_includes_provider_context_in_user_message(db_session):
+    """Provider-supplied context is prepended to the LLM user message when set."""
+    from datetime import datetime, timezone
+
+    from app.models.clinical import Encounter
+    from app.models.patients import Patient
+
+    patient_uuid = uuid.uuid4()
+    encounter_uuid = uuid.uuid4()
+
+    db_session.add(
+        Patient(
+            id=patient_uuid,
+            mrn="P-EMRCTX1",
+            first_name="Ctx",
+            last_name="Test",
+            primary_language="en-US",
+        )
+    )
+    db_session.add(
+        Encounter(
+            id=encounter_uuid,
+            patient_id=patient_uuid,
+            encounter_time=datetime.now(timezone.utc),
+            care_setting="outpatient",
+            chief_complaint="",
+            status="draft",
+        )
+    )
+    await db_session.flush()
+
+    soap_response = json.dumps({
+        "subjective": "S",
+        "objective": "O",
+        "assessment": "A",
+        "plan": "P",
+    })
+    transcript = "Patient reports cough."
+    provider_ctx = "Follow-up visit for hypertension management."
+
+    chat_mock = AsyncMock(return_value=soap_response)
+
+    with (
+        patch(
+            "app.services.patient_rag.llm_adapter.embed",
+            new_callable=AsyncMock,
+            return_value=[[0.3] * 1024],
+        ),
+        patch(
+            "app.services.guideline_rag.llm_adapter.embed",
+            new_callable=AsyncMock,
+            return_value=[[0.3] * 1024],
+        ),
+        patch(
+            "app.services.emr_service.llm_adapter.chat",
+            new_callable=AsyncMock,
+            side_effect=[soap_response, "Cough"],
+        ) as chat_patch,
+    ):
+        svc = EMRService(db_session)
+        await svc.generate(
+            encounter_id=str(encounter_uuid),
+            patient_id=str(patient_uuid),
+            transcript=transcript,
+            provider_context=provider_ctx,
+            request_id="emr-ctx-test",
+            source="voice",
+        )
+        chat_patch.assert_awaited()
+        first_call = chat_patch.await_args_list[0]
+        messages = first_call.kwargs.get("messages") or (
+            first_call.args[0] if first_call.args else None
+        )
+        assert isinstance(messages, list) and len(messages) >= 2
+        user_content = messages[1]["content"]
+        assert "## Provider-supplied context" in user_content
+        assert provider_ctx in user_content
+        assert "## Encounter Transcript" in user_content
+
+
+async def test_emr_generate_rag_retrieve_uses_merged_query(db_session):
+    """Patient and guideline RAG receive transcript + provider_context in the embed query."""
+    from datetime import datetime, timezone
+
+    from app.models.clinical import Encounter
+    from app.models.patients import Patient
+
+    patient_uuid = uuid.uuid4()
+    encounter_uuid = uuid.uuid4()
+
+    db_session.add(
+        Patient(
+            id=patient_uuid,
+            mrn="P-EMRRAG1",
+            first_name="Rag",
+            last_name="Test",
+            primary_language="en-US",
+        )
+    )
+    db_session.add(
+        Encounter(
+            id=encounter_uuid,
+            patient_id=patient_uuid,
+            encounter_time=datetime.now(timezone.utc),
+            care_setting="outpatient",
+            chief_complaint="",
+            status="draft",
+        )
+    )
+    await db_session.flush()
+
+    soap_response = json.dumps({
+        "subjective": "S",
+        "objective": "O",
+        "assessment": "A",
+        "plan": "P",
+    })
+    transcript = "Patient reports cough."
+    provider_ctx = "After visit: patient recalled new penicillin allergy."
+
+    mock_p_retrieve = AsyncMock(return_value=[])
+    mock_g_retrieve = AsyncMock(return_value=[])
+
+    with (
+        patch(
+            "app.services.patient_rag.llm_adapter.embed",
+            new_callable=AsyncMock,
+            return_value=[[0.3] * 1024],
+        ),
+        patch(
+            "app.services.guideline_rag.llm_adapter.embed",
+            new_callable=AsyncMock,
+            return_value=[[0.3] * 1024],
+        ),
+        patch.object(PatientRAGService, "retrieve", mock_p_retrieve),
+        patch.object(GuidelineRAGService, "retrieve", mock_g_retrieve),
+        patch(
+            "app.services.emr_service.llm_adapter.chat",
+            new_callable=AsyncMock,
+            side_effect=[soap_response, "Cough"],
+        ),
+    ):
+        svc = EMRService(db_session)
+        await svc.generate(
+            encounter_id=str(encounter_uuid),
+            patient_id=str(patient_uuid),
+            transcript=transcript,
+            provider_context=provider_ctx,
+            request_id="emr-rag-merge-test",
+            source="voice",
+        )
+
+    mock_p_retrieve.assert_awaited()
+    pq = mock_p_retrieve.await_args.kwargs.get("query")
+    assert pq is not None
+    assert transcript in pq
+    assert provider_ctx in pq
+
+    mock_g_retrieve.assert_awaited()
+    gq = mock_g_retrieve.await_args.kwargs.get("query")
+    assert gq is not None
+    assert transcript in gq
+    assert provider_ctx in gq
+
+
+async def test_emr_generate_without_provider_context_rag_and_llm_no_extra(
+    db_session,
+):
+    """Contrast: no provider_context → RAG query is transcript-only; LLM has no provider section."""
+    from datetime import datetime, timezone
+
+    from app.models.clinical import Encounter
+    from app.models.patients import Patient
+
+    patient_uuid = uuid.uuid4()
+    encounter_uuid = uuid.uuid4()
+
+    db_session.add(
+        Patient(
+            id=patient_uuid,
+            mrn="P-EMRNOPCTX",
+            first_name="No",
+            last_name="Ctx",
+            primary_language="en-US",
+        )
+    )
+    db_session.add(
+        Encounter(
+            id=encounter_uuid,
+            patient_id=patient_uuid,
+            encounter_time=datetime.now(timezone.utc),
+            care_setting="outpatient",
+            chief_complaint="",
+            status="draft",
+        )
+    )
+    await db_session.flush()
+
+    soap_response = json.dumps({
+        "subjective": "S",
+        "objective": "O",
+        "assessment": "A",
+        "plan": "P",
+    })
+    transcript = "  Patient reports cough.  "
+
+    mock_p_retrieve = AsyncMock(return_value=[])
+    mock_g_retrieve = AsyncMock(return_value=[])
+    chat_patch = AsyncMock(side_effect=[soap_response, "Cough"])
+
+    with (
+        patch(
+            "app.services.patient_rag.llm_adapter.embed",
+            new_callable=AsyncMock,
+            return_value=[[0.3] * 1024],
+        ),
+        patch(
+            "app.services.guideline_rag.llm_adapter.embed",
+            new_callable=AsyncMock,
+            return_value=[[0.3] * 1024],
+        ),
+        patch.object(PatientRAGService, "retrieve", mock_p_retrieve),
+        patch.object(GuidelineRAGService, "retrieve", mock_g_retrieve),
+        patch("app.services.emr_service.llm_adapter.chat", chat_patch),
+    ):
+        svc = EMRService(db_session)
+        await svc.generate(
+            encounter_id=str(encounter_uuid),
+            patient_id=str(patient_uuid),
+            transcript=transcript,
+            provider_context=None,
+            request_id="emr-no-ctx-test",
+            source="voice",
+        )
+
+    pq = mock_p_retrieve.await_args.kwargs["query"]
+    assert pq == transcript.strip()
+    assert "## Provider-supplied context" not in pq
+
+    messages = chat_patch.await_args_list[0].kwargs["messages"]
+    user_content = messages[1]["content"]
+    assert "## Provider-supplied context" not in user_content
+    assert "## Encounter Transcript" in user_content
 
 
 async def test_upsert_chief_complaint_updates_encounter_from_llm_summary():

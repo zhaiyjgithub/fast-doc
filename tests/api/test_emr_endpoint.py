@@ -63,6 +63,30 @@ async def test_emr_generate_success(async_client):
     assert data["status"] == "pending"
 
 
+async def test_emr_generate_accepts_optional_provider_context(async_client):
+    """POST /emr/generate accepts optional provider_context (same 202 flow)."""
+    with (
+        patch("app.api.v1.endpoints.emr.AuditService") as MockAudit,
+        patch("app.api.v1.endpoints.emr.EmrTaskService") as MockSvc,
+        patch("app.api.v1.endpoints.emr._run_emr_background", new_callable=AsyncMock),
+    ):
+        MockAudit.return_value.log = AsyncMock()
+        MockSvc.return_value.create = AsyncMock(return_value=_fake_task())
+
+        response = await async_client.post(
+            "/v1/emr/generate",
+            json={
+                "encounter_id": ENCOUNTER_ID,
+                "patient_id": PATIENT_ID,
+                "transcript": "Patient has worsening dyspnea for 3 days.",
+                "provider_context": "Follow-up for hypertension; home BP log reviewed.",
+            },
+        )
+
+    assert response.status_code == 202
+    assert response.json()["task_id"] == TASK_ID
+
+
 async def test_emr_generate_missing_required_fields(async_client):
     response = await async_client.post(
         "/v1/emr/generate",
