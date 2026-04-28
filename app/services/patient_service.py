@@ -81,6 +81,57 @@ class PatientService:
         await self.db.refresh(patient, ["demographics"])
         return patient
 
+    async def find_duplicate_for_create(
+        self,
+        *,
+        clinic_id: str,
+        division_id: str,
+        clinic_system: str,
+        date_of_birth: date | None,
+        email: str | None,
+        phone: str | None,
+    ) -> Patient | None:
+        """Same patient if clinic scope + DOB + (email or phone) matches an active row."""
+        normalized_email = email.strip().lower() if email and email.strip() else None
+        normalized_phone = _normalize_phone_digits(phone)
+        if not normalized_email and not normalized_phone:
+            return None
+
+        stmt = (
+            select(Patient)
+            .join(PatientDemographics, PatientDemographics.patient_id == Patient.id)
+            .options(selectinload(Patient.demographics))
+            .where(Patient.is_active == True)  # noqa: E712
+            .where(Patient.clinic_id == clinic_id)
+            .where(Patient.division_id == division_id)
+            .where(Patient.clinic_system == clinic_system)
+        )
+        if date_of_birth is None:
+            stmt = stmt.where(Patient.date_of_birth.is_(None))
+        else:
+            stmt = stmt.where(Patient.date_of_birth == date_of_birth)
+
+        result = await self.db.execute(stmt)
+        for patient in result.scalars().unique():
+            demo = patient.demographics
+            if not demo:
+                continue
+            email_match = False
+            if normalized_email and demo.email and demo.email.strip():
+                if demo.email.strip().lower() == normalized_email:
+                    email_match = True
+            phone_match = False
+            if normalized_phone and demo.phone:
+                try:
+                    decrypted = decrypt(demo.phone)
+                except Exception:
+                    decrypted = None
+                if decrypted and _normalize_phone_digits(decrypted) == normalized_phone:
+                    phone_match = True
+            if email_match or phone_match:
+                return patient
+        return None
+
     async def get(self, patient_id: str) -> Patient | None:
         result = await self.db.execute(
             select(Patient)
@@ -244,37 +295,13 @@ class PatientService:
         email: str | None,
         phone: str | None,
     ) -> Patient | None:
-        normalized_email = email.strip().lower() if email else None
-        normalized_phone = _normalize_phone_digits(phone)
-        if not (
-            clinic_system
-            and clinic_id
-            and division_id
-            and date_of_birth
-            and normalized_email
-            and normalized_phone
-        ):
+        if not (clinic_system and clinic_id and division_id):
             return None
-
-        stmt = (
-            select(Patient)
-            .join(PatientDemographics, PatientDemographics.patient_id == Patient.id)
-            .options(selectinload(Patient.demographics))
-            .where(Patient.is_active == True)  # noqa: E712
-            .where(Patient.clinic_system == clinic_system)
-            .where(Patient.clinic_id == clinic_id)
-            .where(Patient.division_id == division_id)
-            .where(Patient.date_of_birth == date_of_birth)
-            .where(func.lower(func.trim(PatientDemographics.email)) == normalized_email)
+        return await self.find_duplicate_for_create(
+            clinic_id=clinic_id,
+            division_id=division_id,
+            clinic_system=clinic_system,
+            date_of_birth=date_of_birth,
+            email=email,
+            phone=phone,
         )
-        result = await self.db.execute(stmt)
-        for patient in result.scalars().all():
-            if not patient.demographics or not patient.demographics.phone:
-                continue
-            try:
-                decrypted_phone = decrypt(patient.demographics.phone)
-            except Exception:
-                continue
-            if _normalize_phone_digits(decrypted_phone) == normalized_phone:
-                return patient
-        return None

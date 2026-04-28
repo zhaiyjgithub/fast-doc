@@ -71,11 +71,18 @@ def _patient_stub(
 
 
 async def test_create_accepts_and_serializes_clinic_fields(async_client):
-    with patch(
-        "app.api.v1.endpoints.patients.PatientService.create",
-        new_callable=AsyncMock,
-        return_value=_patient_stub(),
-    ) as create_mock:
+    with (
+        patch(
+            "app.api.v1.endpoints.patients.PatientService.find_duplicate_for_create",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch(
+            "app.api.v1.endpoints.patients.PatientService.create",
+            new_callable=AsyncMock,
+            return_value=_patient_stub(),
+        ) as create_mock,
+    ):
         response = await async_client.post(
             "/v1/patients",
             json={
@@ -107,6 +114,63 @@ async def test_create_accepts_and_serializes_clinic_fields(async_client):
     assert data["division_id"] == "division-001"
     assert data["clinic_system"] == "epic"
     assert data["clinic_name"] == "Downtown Pulmonary Clinic"
+
+
+async def test_create_duplicate_returns_409_and_skips_create(async_client):
+    with (
+        patch(
+            "app.api.v1.endpoints.patients.PatientService.find_duplicate_for_create",
+            new_callable=AsyncMock,
+            return_value=_patient_stub(),
+        ),
+        patch(
+            "app.api.v1.endpoints.patients.PatientService.create",
+            new_callable=AsyncMock,
+        ) as create_mock,
+    ):
+        response = await async_client.post(
+            "/v1/patients",
+            json={
+                "first_name": "Ada",
+                "last_name": "Lovelace",
+                "date_of_birth": "1988-04-09",
+                "clinic_patient_id": "clinic-patient-001",
+            },
+        )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Duplicate patient found in clinic scope"
+    create_mock.assert_not_awaited()
+
+
+async def test_create_assigns_default_clinic_patient_id_when_omitted(async_client):
+    with (
+        patch(
+            "app.api.v1.endpoints.patients.PatientService.find_duplicate_for_create",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch(
+            "app.api.v1.endpoints.patients.PatientService.create",
+            new_callable=AsyncMock,
+            return_value=_patient_stub(clinic_patient_id="fd-manual-PLACEHOLDER"),
+        ) as create_mock,
+    ):
+        response = await async_client.post(
+            "/v1/patients",
+            json={
+                "first_name": "Ada",
+                "last_name": "Lovelace",
+                "date_of_birth": "1988-04-09",
+                "gender": "Female",
+            },
+        )
+
+    assert response.status_code == 201
+    create_payload = create_mock.await_args.args[0]
+    cpid = create_payload.get("clinic_patient_id")
+    assert isinstance(cpid, str)
+    assert cpid.startswith("fd-manual-")
 
 
 async def test_update_accepts_and_serializes_clinic_fields(async_client):

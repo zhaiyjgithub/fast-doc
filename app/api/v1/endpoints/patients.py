@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import secrets
 from datetime import date, datetime
 from typing import Annotated
 from uuid import UUID
@@ -366,10 +367,32 @@ async def create_patient(
     data["clinic_id"] = clinic_id
     data["division_id"] = division_id
     data["clinic_system"] = clinic_system
+    clinic_patient_id = data.get("clinic_patient_id")
+    if isinstance(clinic_patient_id, str):
+        normalized_clinic_patient_id = clinic_patient_id.strip()
+        data["clinic_patient_id"] = normalized_clinic_patient_id or None
     if data.get("demographics"):
         # strip fields with no DB column
         data["demographics"].pop("address_line2", None)
         data["demographics"].pop("country", None)
+    demo_in = data.get("demographics") or {}
+    dup_email = demo_in.get("email") if isinstance(demo_in, dict) else None
+    dup_phone = demo_in.get("phone") if isinstance(demo_in, dict) else None
+    duplicate = await svc.find_duplicate_for_create(
+        clinic_id=clinic_id,
+        division_id=division_id,
+        clinic_system=clinic_system,
+        date_of_birth=data.get("date_of_birth"),
+        email=dup_email if isinstance(dup_email, str) else None,
+        phone=dup_phone if isinstance(dup_phone, str) else None,
+    )
+    if duplicate is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Duplicate patient found in clinic scope",
+        )
+    if not data.get("clinic_patient_id"):
+        data["clinic_patient_id"] = f"fd-manual-{secrets.token_hex(4).upper()}"
     patient = await svc.create(data)
     return ApiResponse(data=_build_patient_out(patient))
 
@@ -413,19 +436,19 @@ async def parse_demographics(
     parsed = _coerce_parsed_patient_payload(parsed_payload)
 
     svc = PatientService(db)
-    matched_patient = await svc.find_existing_by_clinic_identity(
-        clinic_system=effective_clinic_system,
+    duplicate = await svc.find_duplicate_for_create(
         clinic_id=effective_clinic_id,
         division_id=effective_division_id,
+        clinic_system=effective_clinic_system,
         date_of_birth=parsed.date_of_birth,
         email=parsed.demographics.email if parsed.demographics else None,
         phone=parsed.demographics.phone if parsed.demographics else None,
     )
-    if matched_patient is not None:
+    if duplicate is not None:
         return ApiResponse(
             data=ParseDemographicsResultOut(
                 is_new=False,
-                patient=_build_patient_out(matched_patient),
+                patient=_build_patient_out(duplicate),
             )
         )
 

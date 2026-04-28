@@ -108,10 +108,10 @@ async def test_parse_demographics_matches_existing_patient(async_client):
             return_value=llm_json,
         ),
         patch(
-            "app.services.patient_service.PatientService.find_existing_by_clinic_identity",
+            "app.services.patient_service.PatientService.find_duplicate_for_create",
             new_callable=AsyncMock,
             return_value=existing_patient,
-        ) as match_mock,
+        ) as duplicate_mock,
         patch(
             "app.services.patient_service.PatientService.create",
             new_callable=AsyncMock,
@@ -139,13 +139,13 @@ async def test_parse_demographics_matches_existing_patient(async_client):
     assert body["patient"]["clinic_id"] == "clinic-123"
     assert body["patient"]["division_id"] == "division-456"
     assert body["patient"]["demographics"]["phone"] == "888-555-5555"
-    match_mock.assert_awaited_once()
-    assert match_mock.await_args.kwargs["clinic_system"] == "athena"
-    assert match_mock.await_args.kwargs["clinic_id"] == "clinic-123"
-    assert match_mock.await_args.kwargs["division_id"] == "division-456"
-    assert str(match_mock.await_args.kwargs["date_of_birth"]) == "1980-01-01"
-    assert match_mock.await_args.kwargs["email"] == "sync.diag@zocdoc.com"
-    assert match_mock.await_args.kwargs["phone"] == "888-555-5555"
+    duplicate_mock.assert_awaited_once()
+    assert duplicate_mock.await_args.kwargs["clinic_system"] == "athena"
+    assert duplicate_mock.await_args.kwargs["clinic_id"] == "clinic-123"
+    assert duplicate_mock.await_args.kwargs["division_id"] == "division-456"
+    assert str(duplicate_mock.await_args.kwargs["date_of_birth"]) == "1980-01-01"
+    assert duplicate_mock.await_args.kwargs["email"] == "sync.diag@zocdoc.com"
+    assert duplicate_mock.await_args.kwargs["phone"] == "888-555-5555"
     create_mock.assert_not_awaited()
 
 
@@ -181,15 +181,15 @@ async def test_parse_demographics_creates_new_patient_when_no_match(async_client
             return_value=llm_json,
         ),
         patch(
-            "app.services.patient_service.PatientService.find_existing_by_clinic_identity",
-            new_callable=AsyncMock,
-            return_value=None,
-        ) as match_mock,
-        patch(
             "app.services.patient_service.PatientService.create",
             new_callable=AsyncMock,
             return_value=created_patient,
         ) as create_mock,
+        patch(
+            "app.services.patient_service.PatientService.find_duplicate_for_create",
+            new_callable=AsyncMock,
+            return_value=None,
+        ) as duplicate_mock,
     ):
         response = await async_client.post(
             "/v1/patients/parse-demographics",
@@ -211,7 +211,7 @@ async def test_parse_demographics_creates_new_patient_when_no_match(async_client
     assert body["patient"]["clinic_system"] == "athena"
     assert body["patient"]["clinic_id"] == "clinic-123"
     assert body["patient"]["division_id"] == "division-456"
-    match_mock.assert_awaited_once()
+    duplicate_mock.assert_awaited_once()
     create_mock.assert_awaited_once()
     create_payload = create_mock.await_args.args[0]
     assert create_payload["clinic_system"] == "athena"
@@ -220,6 +220,58 @@ async def test_parse_demographics_creates_new_patient_when_no_match(async_client
     assert create_payload["clinic_patient_id"] == "1002213835"
     assert create_payload["demographics"]["email"] == "sync.diag@zocdoc.com"
     assert create_payload["demographics"]["phone"] == "888-555-5555"
+
+
+async def test_parse_demographics_returns_existing_when_duplicate_rule_matches(async_client):
+    llm_json = """
+{
+  "first_name": "Test",
+  "last_name": "Sync-Diag",
+  "date_of_birth": "1980-01-01",
+  "gender": "Male",
+  "primary_language": "English",
+  "clinic_patient_id": "1002213835"
+}
+"""
+    duplicate_patient = _make_patient(
+        patient_id="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0003",
+        mrn="P-DUP001",
+        first_name="Test",
+        last_name="Sync-Diag",
+    )
+    with (
+        patch(
+            "app.api.v1.endpoints.patients.llm_adapter.chat",
+            new_callable=AsyncMock,
+            return_value=llm_json,
+        ),
+        patch(
+            "app.services.patient_service.PatientService.find_duplicate_for_create",
+            new_callable=AsyncMock,
+            return_value=duplicate_patient,
+        ) as duplicate_mock,
+        patch(
+            "app.services.patient_service.PatientService.create",
+            new_callable=AsyncMock,
+        ) as create_mock,
+    ):
+        response = await async_client.post(
+            "/v1/patients/parse-demographics",
+            json={
+                "demographics_text": RAW_DEMOGRAPHICS_TEXT,
+                "clinic_id": "clinic-123",
+                "division_id": "division-456",
+                "clinic_system": "athena",
+            },
+        )
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["is_new"] is False
+    assert body["patient"]["id"] == "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0003"
+    assert body["patient"]["mrn"] == "P-DUP001"
+    duplicate_mock.assert_awaited_once()
+    create_mock.assert_not_awaited()
 
 
 async def test_parse_demographics_doctor_missing_jwt_clinic_context_returns_403(async_client):
