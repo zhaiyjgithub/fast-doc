@@ -9,8 +9,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import and_, desc, func, or_, select
+from sqlalchemy import and_, desc, func, inspect, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import NO_VALUE
 from sqlalchemy.orm import selectinload
 
 from app.api.v1.deps import CurrentPrincipal, require_doctor_or_admin
@@ -146,7 +147,17 @@ async def _background_generate_emr(
 
 
 def _encounter_to_out(enc: Encounter, latest_emr_note: EmrNote | None) -> EncounterOut:
-    patient = getattr(enc, "patient", None)
+    # Avoid async lazy-load here; some call sites (e.g. create_encounter)
+    # return an Encounter without eagerly loaded patient relationship.
+    patient = None
+    inspected = inspect(enc, raiseerr=False)
+    if inspected is None:
+        patient = getattr(enc, "patient", None)
+    else:
+        patient_loaded_value = inspected.attrs.patient.loaded_value
+        if patient_loaded_value is not NO_VALUE:
+            patient = patient_loaded_value
+
     patient_display_id: str | None = None
     if patient is not None:
         patient_display_id = patient.clinic_patient_id or patient.mrn
