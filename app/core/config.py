@@ -1,5 +1,7 @@
 from pathlib import Path
+from typing import Literal
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Resolve .env relative to this file (app/core/config.py → project root)
@@ -45,6 +47,20 @@ class Settings(BaseSettings):
 
     # Feature flags
     IMAGE_DESCRIPTION_ENABLED: bool = True
+
+    # Observability
+    LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+    LOG_JSON: bool = True
+    LOG_REQUESTS: bool = True
+    LOG_EXCLUDE_PATHS: str = "/health"
+    SENTRY_DSN: str = ""
+    SENTRY_ENVIRONMENT: str = "production"
+    SENTRY_TRACES_SAMPLE_RATE: float = Field(default=0.0, ge=0.0, le=1.0)
+    LOKI_URL: str = ""
+    LOKI_USERNAME: str = ""
+    LOKI_PASSWORD: str = ""
+    LOKI_TENANT_ID: str = ""
+    LOKI_TIMEOUT_SECONDS: float = Field(default=2.0, gt=0.0)
 
 
 settings = Settings()

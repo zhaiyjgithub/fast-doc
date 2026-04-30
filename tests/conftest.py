@@ -14,7 +14,7 @@ test_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
 TestSessionLocal = async_sessionmaker(test_engine, expire_on_commit=False, class_=AsyncSession)
 
 
-@pytest_asyncio.fixture(scope="session", loop_scope="session", autouse=True)
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def setup_test_db():
     """Create all tables once per test session, drop on teardown."""
     import app.models  # noqa: F401 — register all models with Base.metadata
@@ -29,7 +29,7 @@ async def setup_test_db():
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def db_session():
+async def db_session(setup_test_db):
     """Transactional session — rolls back after each test for isolation."""
     async with test_engine.connect() as conn:
         trans = await conn.begin()
@@ -43,6 +43,13 @@ async def db_session():
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def async_client():
-    """Async HTTP test client for FastAPI app."""
+    """Async HTTP test client for FastAPI app (no DB bootstrap)."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        yield client
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def db_async_client(setup_test_db):
+    """Async HTTP test client for tests that require DB setup."""
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client
