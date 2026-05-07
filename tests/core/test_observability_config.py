@@ -25,7 +25,9 @@ def test_observability_defaults(monkeypatch):
     for key in keys:
         monkeypatch.delenv(key, raising=False)
 
-    settings = Settings()
+    # Override env_file=None so the project-root .env does not leak real
+    # SENTRY_DSN / LOKI_URL values into this defaults test.
+    settings = Settings(_env_file=None)
 
     assert settings.LOG_LEVEL == "INFO"
     assert settings.LOG_JSON is True

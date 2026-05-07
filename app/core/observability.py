@@ -225,6 +225,9 @@ def setup_observability() -> None:
     initialize_sentry()
 
     if settings.LOKI_URL and not _has_loki_handler(root_logger, settings.LOKI_URL):
+        # Quiet httpx INFO ("HTTP Request: POST ...") so that LokiHandler's own
+        # push traffic does not feed back into the queue and amplify volume.
+        logging.getLogger("httpx").setLevel(logging.WARNING)
         root_logger.addHandler(
             LokiHandler(
                 url=settings.LOKI_URL,
