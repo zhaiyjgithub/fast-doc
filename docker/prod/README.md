@@ -2,7 +2,7 @@
 
 Production deployment for FastDoc API + PostgreSQL/pgvector.
 
-This compose file keeps PostgreSQL on the private Docker network and exposes the API only on `127.0.0.1:8000`, which fits Cloudflare Tunnel or a local reverse proxy.
+This compose file exposes the API only on `127.0.0.1:8000`, which fits Cloudflare Tunnel or a local reverse proxy. PostgreSQL is published on the host port configured by `POSTGRES_PORT` so trusted external machines can connect.
 
 ## 1. Create secrets
 
@@ -20,6 +20,8 @@ Use `openssl rand -hex 32` for `POSTGRES_PASSWORD` and `JWT_SECRET`.
 Use the Python command for `ENCRYPTION_KEY`.
 
 Fill in `QWEN_API_KEY` and `MINERU_API_KEY` as needed.
+
+Set `POSTGRES_PORT` if you need a non-default host port. When exposing PostgreSQL, restrict `5432/tcp` or the configured port to trusted source IPs with your server firewall or cloud security group.
 
 ## 2. Build and start
 
