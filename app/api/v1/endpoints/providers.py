@@ -27,6 +27,7 @@ class ProviderCreate(BaseModel):
     full_name: str | None = None
     provider_clinic_id: str | None = None
     division_id: str | None = None
+    clinic_system_id: str | None = None
     clinic_system: str | None = None
     clinic_name: str | None = None
     credentials: str | None = None
@@ -44,6 +45,7 @@ class ProviderUpdate(BaseModel):
     last_name: str | None = None
     provider_clinic_id: str | None = None
     division_id: str | None = None
+    clinic_system_id: str | None = None
     clinic_system: str | None = None
     clinic_name: str | None = None
     credentials: str | None = None
@@ -62,6 +64,7 @@ class ProviderOut(BaseModel):
     last_name: str | None = None
     provider_clinic_id: str | None = None
     division_id: str | None = None
+    clinic_system_id: str | None = None
     clinic_system: str | None = None
     clinic_name: str | None = None
     credentials: str | None = None
@@ -91,6 +94,7 @@ def _to_out(provider) -> ProviderOut:
         last_name=provider.last_name,
         provider_clinic_id=provider.provider_clinic_id,
         division_id=provider.division_id,
+        clinic_system_id=provider.clinic_system_id,
         clinic_system=provider.clinic_system,
         clinic_name=provider.clinic_name,
         credentials=provider.credentials,
@@ -133,7 +137,10 @@ async def create_provider(
     _user: "CurrentPrincipal" = Depends(require_admin),
 ) -> ApiResponse[ProviderOut]:
     svc = ProviderService(db)
-    provider = await svc.create(body.model_dump())
+    try:
+        provider = await svc.create(body.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     return ApiResponse(data=_to_out(provider))
 
 
@@ -158,7 +165,10 @@ async def update_provider(
     _user: "CurrentPrincipal" = Depends(require_admin),
 ) -> ApiResponse[ProviderOut]:
     svc = ProviderService(db)
-    provider = await svc.update(provider_id, body.model_dump(exclude_unset=True))
+    try:
+        provider = await svc.update(provider_id, body.model_dump(exclude_unset=True))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     if provider is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
     return ApiResponse(data=_to_out(provider))

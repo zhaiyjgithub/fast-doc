@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, String
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -16,6 +16,9 @@ class Provider(Base):
     external_provider_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     provider_clinic_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     division_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    clinic_system_id: Mapped[str | None] = mapped_column(
+        String(32), ForeignKey("clinic_systems.id", ondelete="SET NULL"), nullable=True
+    )
     clinic_system: Mapped[str | None] = mapped_column(String(32), nullable=True)
     clinic_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     first_name: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -37,3 +40,4 @@ class Provider(Base):
     )
 
     encounters: Mapped[list["Encounter"]] = relationship("Encounter", back_populates="provider")
+    clinic_system_ref: Mapped["ClinicSystem | None"] = relationship("ClinicSystem")

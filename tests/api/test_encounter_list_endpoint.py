@@ -47,6 +47,7 @@ async def test_list_encounters_returns_paginated_items_with_desc_ordering(async_
         patient_id=uuid4(),
         provider_id=uuid4(),
         encounter_time=datetime(2026, 4, 20, 11, 0, tzinfo=timezone.utc),
+        created_at=datetime(2026, 4, 20, 11, 5, tzinfo=timezone.utc),
         care_setting="outpatient",
         chief_complaint="Headache",
         status="done",
@@ -57,6 +58,7 @@ async def test_list_encounters_returns_paginated_items_with_desc_ordering(async_
         patient_id=uuid4(),
         provider_id=None,
         encounter_time=datetime(2026, 4, 20, 9, 30, tzinfo=timezone.utc),
+        created_at=datetime(2026, 4, 20, 9, 35, tzinfo=timezone.utc),
         care_setting="outpatient",
         chief_complaint="Follow-up",
         status="draft",
@@ -76,7 +78,7 @@ async def test_list_encounters_returns_paginated_items_with_desc_ordering(async_
 
     assert fake_db.execute.await_count == 2
     statement = fake_db.execute.await_args_list[0].args[0]
-    assert "ORDER BY encounters.encounter_time DESC, encounters.id DESC" in str(statement)
+    assert "ORDER BY encounters.created_at DESC, encounters.id DESC" in str(statement)
 
 
 async def test_list_encounters_today_only_filters_to_current_utc_day(async_client, fake_db):
@@ -151,3 +153,67 @@ async def test_list_encounters_includes_transcript_text_field(async_client, fake
     payload = response.json()[0]
     assert "transcript_text" in payload
     assert payload["transcript_text"] is None
+
+
+async def test_list_encounters_start_date_filter_applied(async_client, fake_db):
+    encounter = SimpleNamespace(
+        id=uuid4(),
+        patient_id=uuid4(),
+        provider_id=None,
+        encounter_time=datetime(2026, 5, 10, 8, 0, tzinfo=timezone.utc),
+        care_setting="outpatient",
+        chief_complaint="Fever",
+        status="done",
+        transcript_text=None,
+    )
+    fake_db.execute.side_effect = [
+        _scalar_result(all_items=[encounter]),
+        _scalar_result(all_items=[]),
+    ]
+
+    response = await async_client.get("/v1/encounters?start_date=2026-05-01")
+
+    assert response.status_code == 200
+    statement = fake_db.execute.await_args_list[0].args[0]
+    params = list(statement.compile().params.values())
+    assert datetime(2026, 5, 1, 0, 0, tzinfo=timezone.utc) in params
+
+
+async def test_list_encounters_end_date_filter_applied(async_client, fake_db):
+    encounter = SimpleNamespace(
+        id=uuid4(),
+        patient_id=uuid4(),
+        provider_id=None,
+        encounter_time=datetime(2026, 5, 5, 10, 0, tzinfo=timezone.utc),
+        care_setting="outpatient",
+        chief_complaint="Cough",
+        status="done",
+        transcript_text=None,
+    )
+    fake_db.execute.side_effect = [
+        _scalar_result(all_items=[encounter]),
+        _scalar_result(all_items=[]),
+    ]
+
+    response = await async_client.get("/v1/encounters?end_date=2026-05-31")
+
+    assert response.status_code == 200
+    statement = fake_db.execute.await_args_list[0].args[0]
+    params = list(statement.compile().params.values())
+    # end_date is exclusive upper bound: 2026-06-01 00:00 UTC
+    assert datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc) in params
+
+
+async def test_list_encounters_start_and_end_date_both_applied(async_client, fake_db):
+    fake_db.execute.side_effect = [
+        _scalar_result(all_items=[]),
+        _scalar_result(all_items=[]),
+    ]
+
+    response = await async_client.get("/v1/encounters?start_date=2026-05-01&end_date=2026-05-31")
+
+    assert response.status_code == 200
+    statement = fake_db.execute.await_args_list[0].args[0]
+    params = list(statement.compile().params.values())
+    assert datetime(2026, 5, 1, 0, 0, tzinfo=timezone.utc) in params
+    assert datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc) in params

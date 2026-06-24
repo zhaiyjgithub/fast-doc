@@ -76,6 +76,7 @@ class EncounterOut(BaseModel):
     care_setting: str
     chief_complaint: str | None = None
     status: str
+    created_at: datetime | None = None
     has_transcript: bool = False
     transcript_text: str | None = None
     latest_emr: dict | None = None
@@ -170,6 +171,7 @@ def _encounter_to_out(enc: Encounter, latest_emr_note: EmrNote | None) -> Encoun
         care_setting=enc.care_setting,
         chief_complaint=enc.chief_complaint,
         status=enc.status,
+        created_at=getattr(enc, "created_at", None),
         has_transcript=bool(enc.transcript_text),
         transcript_text=enc.transcript_text,
         latest_emr=latest_emr_note.soap_json if latest_emr_note else None,
@@ -290,8 +292,10 @@ async def list_encounters(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     today_only: bool = Query(False),
+    start_date: date | None = Query(None),
+    end_date: date | None = Query(None),
 ) -> list[EncounterOut]:
-    """List encounters ordered by encounter_time DESC with optional UTC today filter."""
+    """List encounters ordered by created_at DESC with optional UTC today filter."""
     offset = (page - 1) * page_size
 
     statement = select(Encounter).options(selectinload(Encounter.patient))
@@ -302,10 +306,17 @@ async def list_encounters(
             Encounter.encounter_time >= day_start,
             Encounter.encounter_time < next_day_start,
         )
+    if start_date:
+        statement = statement.where(
+            Encounter.encounter_time >= datetime(start_date.year, start_date.month, start_date.day, tzinfo=timezone.utc)
+        )
+    if end_date:
+        next_day = datetime(end_date.year, end_date.month, end_date.day, tzinfo=timezone.utc) + timedelta(days=1)
+        statement = statement.where(Encounter.encounter_time < next_day)
 
     result = await db.execute(
         statement
-        .order_by(desc(Encounter.encounter_time), desc(Encounter.id))
+        .order_by(desc(Encounter.created_at), desc(Encounter.id))
         .offset(offset)
         .limit(page_size)
     )
@@ -336,6 +347,8 @@ async def search_encounters(
     language: str | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    start_date: date | None = Query(None),
+    end_date: date | None = Query(None),
 ) -> list[EncounterOut]:
     """Search encounters by patient attributes with pagination."""
     offset = (page - 1) * page_size
@@ -380,10 +393,17 @@ async def search_encounters(
                     Patient.mrn.ilike(pattern),
                 )
             )
+    if start_date:
+        statement = statement.where(
+            Encounter.encounter_time >= datetime(start_date.year, start_date.month, start_date.day, tzinfo=timezone.utc)
+        )
+    if end_date:
+        next_day = datetime(end_date.year, end_date.month, end_date.day, tzinfo=timezone.utc) + timedelta(days=1)
+        statement = statement.where(Encounter.encounter_time < next_day)
 
     result = await db.execute(
         statement
-        .order_by(desc(Encounter.encounter_time), desc(Encounter.id))
+        .order_by(desc(Encounter.created_at), desc(Encounter.id))
         .offset(offset)
         .limit(page_size)
     )

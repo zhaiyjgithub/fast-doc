@@ -7,6 +7,7 @@ from app.models.clinical import (
     LabResult,
     MedicationRecord,
 )
+from app.models.clinic_systems import ClinicSystem
 from app.models.coding import CodingEvidenceLink, CodingSuggestion, CptCatalog, IcdCatalog
 from app.models.ops import AuditEvent, LlmCall
 from app.models.patients import Patient, PatientDemographics
@@ -19,6 +20,7 @@ __all__ = [
     "Patient",
     "PatientDemographics",
     "Provider",
+    "ClinicSystem",
     "Encounter",
     "EmrNote",
     "DiagnosisRecord",

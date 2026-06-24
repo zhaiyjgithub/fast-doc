@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.clinic_systems import ClinicSystem
 from app.models.providers import Provider
 
 if TYPE_CHECKING:
@@ -35,6 +36,12 @@ class ProviderService:
         """Create a provider row. If 'email' + 'initial_password' are in data, also create a User."""
         email = data.pop("email", None)
         initial_password = data.pop("initial_password", None)
+        clinic_system_id = data.get("clinic_system_id")
+        if clinic_system_id is not None:
+            clinic_system = await self.get_clinic_system(clinic_system_id)
+            if clinic_system is None:
+                raise ValueError("Invalid clinic_system_id")
+            data["clinic_system"] = clinic_system.id
 
         if not data.get("full_name"):
             parts = [data.get("credentials"), data.get("first_name"), data.get("last_name")]
@@ -45,6 +52,7 @@ class ProviderService:
             external_provider_id=data.get("external_provider_id") or _generate_external_id(),
             provider_clinic_id=data.get("provider_clinic_id"),
             division_id=data.get("division_id"),
+            clinic_system_id=data.get("clinic_system_id"),
             clinic_system=data.get("clinic_system"),
             clinic_name=data.get("clinic_name"),
             first_name=data["first_name"],
@@ -83,6 +91,15 @@ class ProviderService:
         result = await self.db.execute(select(Provider).where(Provider.id == parsed_provider_id))
         return result.scalars().first()
 
+    async def get_clinic_system(self, clinic_system_id: str) -> ClinicSystem | None:
+        result = await self.db.execute(
+            select(ClinicSystem).where(
+                ClinicSystem.id == clinic_system_id,
+                ClinicSystem.is_active == True,  # noqa: E712
+            )
+        )
+        return result.scalars().first()
+
     async def list_providers(
         self, page: int = 1, page_size: int = 20, active_only: bool = True
     ) -> tuple[list[Provider], int]:
@@ -111,6 +128,7 @@ class ProviderService:
             "last_name",
             "provider_clinic_id",
             "division_id",
+            "clinic_system_id",
             "clinic_system",
             "clinic_name",
             "credentials",
@@ -122,12 +140,23 @@ class ProviderService:
         nullable_clearable = {
             "provider_clinic_id",
             "division_id",
+            "clinic_system_id",
             "clinic_system",
             "clinic_name",
             "credentials",
             "specialty",
             "sub_specialty",
         }
+        if "clinic_system_id" in data:
+            clinic_system_id = data["clinic_system_id"]
+            if clinic_system_id is not None:
+                clinic_system = await self.get_clinic_system(clinic_system_id)
+                if clinic_system is None:
+                    raise ValueError("Invalid clinic_system_id")
+                data["clinic_system"] = clinic_system.id
+            else:
+                data["clinic_system"] = None
+
         for field in updatable:
             if field not in data:
                 continue

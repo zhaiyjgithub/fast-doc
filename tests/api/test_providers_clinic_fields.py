@@ -45,6 +45,7 @@ def _provider_stub(
     *,
     provider_clinic_id: str | None = "clinic-provider-001",
     division_id: str | None = "division-001",
+    clinic_system_id: str | None = None,
     clinic_system: str | None = "epic",
     clinic_name: str | None = "Downtown Pulmonary Clinic",
 ):
@@ -55,6 +56,7 @@ def _provider_stub(
         last_name="Lovelace",
         provider_clinic_id=provider_clinic_id,
         division_id=division_id,
+        clinic_system_id=clinic_system_id,
         clinic_system=clinic_system,
         clinic_name=clinic_name,
         credentials="MD",
@@ -79,6 +81,7 @@ async def test_create_accepts_and_serializes_clinic_fields(async_client):
                 "last_name": "Lovelace",
                 "provider_clinic_id": "clinic-provider-001",
                 "division_id": "division-001",
+                "clinic_system_id": "iclinic",
                 "clinic_system": "epic",
                 "clinic_name": "Downtown Pulmonary Clinic",
             },
@@ -88,12 +91,14 @@ async def test_create_accepts_and_serializes_clinic_fields(async_client):
     create_payload = create_mock.await_args.args[0]
     assert create_payload["provider_clinic_id"] == "clinic-provider-001"
     assert create_payload["division_id"] == "division-001"
+    assert create_payload["clinic_system_id"] == "iclinic"
     assert create_payload["clinic_system"] == "epic"
     assert create_payload["clinic_name"] == "Downtown Pulmonary Clinic"
 
     data = response.json()["data"]
     assert data["provider_clinic_id"] == "clinic-provider-001"
     assert data["division_id"] == "division-001"
+    assert data["clinic_system_id"] is None
     assert data["clinic_system"] == "epic"
     assert data["clinic_name"] == "Downtown Pulmonary Clinic"
 
@@ -106,7 +111,8 @@ async def test_update_accepts_and_serializes_clinic_fields(async_client):
         return_value=_provider_stub(
             provider_clinic_id="clinic-provider-002",
             division_id="division-002",
-            clinic_system="cerner",
+            clinic_system_id="eclinic",
+            clinic_system="eclinic",
             clinic_name="Northside Pulmonary",
         ),
     ) as update_mock:
@@ -115,7 +121,7 @@ async def test_update_accepts_and_serializes_clinic_fields(async_client):
             json={
                 "provider_clinic_id": "clinic-provider-002",
                 "division_id": "division-002",
-                "clinic_system": "cerner",
+                "clinic_system_id": "eclinic",
                 "clinic_name": "Northside Pulmonary",
             },
         )
@@ -125,13 +131,14 @@ async def test_update_accepts_and_serializes_clinic_fields(async_client):
     update_payload = update_mock.await_args.args[1]
     assert update_payload["provider_clinic_id"] == "clinic-provider-002"
     assert update_payload["division_id"] == "division-002"
-    assert update_payload["clinic_system"] == "cerner"
+    assert update_payload["clinic_system_id"] == "eclinic"
     assert update_payload["clinic_name"] == "Northside Pulmonary"
 
     data = response.json()["data"]
     assert data["provider_clinic_id"] == "clinic-provider-002"
     assert data["division_id"] == "division-002"
-    assert data["clinic_system"] == "cerner"
+    assert data["clinic_system_id"] == "eclinic"
+    assert data["clinic_system"] == "eclinic"
     assert data["clinic_name"] == "Northside Pulmonary"
 
 
@@ -143,6 +150,7 @@ async def test_update_allows_explicit_null_clinic_fields(async_client):
         return_value=_provider_stub(
             provider_clinic_id=None,
             division_id=None,
+            clinic_system_id=None,
             clinic_system=None,
             clinic_name=None,
         ),
@@ -152,6 +160,7 @@ async def test_update_allows_explicit_null_clinic_fields(async_client):
             json={
                 "provider_clinic_id": None,
                 "division_id": None,
+                "clinic_system_id": None,
                 "clinic_system": None,
                 "clinic_name": None,
             },
@@ -162,16 +171,19 @@ async def test_update_allows_explicit_null_clinic_fields(async_client):
     update_payload = update_mock.await_args.args[1]
     assert "provider_clinic_id" in update_payload
     assert "division_id" in update_payload
+    assert "clinic_system_id" in update_payload
     assert "clinic_system" in update_payload
     assert "clinic_name" in update_payload
     assert update_payload["provider_clinic_id"] is None
     assert update_payload["division_id"] is None
+    assert update_payload["clinic_system_id"] is None
     assert update_payload["clinic_system"] is None
     assert update_payload["clinic_name"] is None
 
     data = response.json()["data"]
     assert data["provider_clinic_id"] is None
     assert data["division_id"] is None
+    assert data["clinic_system_id"] is None
     assert data["clinic_system"] is None
     assert data["clinic_name"] is None
 
@@ -190,10 +202,45 @@ async def test_update_rejects_invalid_uuid_path_param(async_client):
     update_mock.assert_not_awaited()
 
 
+async def test_create_rejects_invalid_clinic_system_id(async_client):
+    with patch(
+        "app.api.v1.endpoints.providers.ProviderService.create",
+        new_callable=AsyncMock,
+        side_effect=ValueError("Invalid clinic_system_id"),
+    ):
+        response = await async_client.post(
+            "/v1/providers",
+            json={
+                "first_name": "Ada",
+                "last_name": "Lovelace",
+                "clinic_system_id": "missing",
+            },
+        )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid clinic_system_id"
+
+
+async def test_update_rejects_invalid_clinic_system_id(async_client):
+    with patch(
+        "app.api.v1.endpoints.providers.ProviderService.update",
+        new_callable=AsyncMock,
+        side_effect=ValueError("Invalid clinic_system_id"),
+    ):
+        response = await async_client.put(
+            f"/v1/providers/{uuid4()}",
+            json={"clinic_system_id": "missing"},
+        )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid clinic_system_id"
+
+
 async def test_get_serializes_clinic_fields(async_client):
     provider = _provider_stub(
         provider_clinic_id="clinic-provider-003",
         division_id="division-003",
+        clinic_system_id="custom",
         clinic_system="athena",
         clinic_name="Westside Respiratory",
     )
@@ -209,6 +256,7 @@ async def test_get_serializes_clinic_fields(async_client):
     data = response.json()["data"]
     assert data["provider_clinic_id"] == "clinic-provider-003"
     assert data["division_id"] == "division-003"
+    assert data["clinic_system_id"] == "custom"
     assert data["clinic_system"] == "athena"
     assert data["clinic_name"] == "Westside Respiratory"
 
@@ -217,6 +265,7 @@ async def test_list_serializes_clinic_fields(async_client):
     provider = _provider_stub(
         provider_clinic_id="clinic-provider-004",
         division_id="division-004",
+        clinic_system_id="iclinic",
         clinic_system="epic",
         clinic_name="South Clinic",
     )
@@ -233,5 +282,6 @@ async def test_list_serializes_clinic_fields(async_client):
     assert body["total"] == 1
     assert body["items"][0]["provider_clinic_id"] == "clinic-provider-004"
     assert body["items"][0]["division_id"] == "division-004"
+    assert body["items"][0]["clinic_system_id"] == "iclinic"
     assert body["items"][0]["clinic_system"] == "epic"
     assert body["items"][0]["clinic_name"] == "South Clinic"

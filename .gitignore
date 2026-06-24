@@ -20,3 +20,8 @@ wheels/
 # Clinical guideline PDFs — large binary files, not tracked in git
 docs/guidelines/
 
+.codegraph
+
+# Production backup artifacts
+docker/prod/backups/
+docker/prod/backup.log
