@@ -1,16 +1,39 @@
 from pathlib import Path
+import os
 from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Resolve .env relative to this file (app/core/config.py → project root)
-_ENV_FILE = Path(__file__).parent.parent.parent / ".env"
+_PROJECT_ROOT = Path(__file__).parent.parent.parent
+
+
+def _normalize_env_name(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized in {"development", "local"}:
+        return "dev"
+    if normalized in {"production"}:
+        return "prod"
+    return normalized or "dev"
+
+
+def _env_files() -> tuple[str, ...]:
+    explicit = os.getenv("FASTDOC_ENV_FILE")
+    if explicit:
+        return (explicit,)
+
+    env_name = _normalize_env_name(os.getenv("FASTDOC_ENV", os.getenv("APP_ENV", "dev")))
+    env_candidates = (
+        _PROJECT_ROOT / ".env",
+        _PROJECT_ROOT / f".env.{env_name}",
+    )
+    return tuple(str(path) for path in env_candidates if path.exists())
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=str(_ENV_FILE),
+        env_file=_env_files(),
         env_file_encoding="utf-8",
         extra="ignore",
     )

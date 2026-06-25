@@ -7,8 +7,8 @@ cd "$ROOT_DIR"
 
 HOST="${HOST:-127.0.0.1}"
 PORT="${PORT:-8000}"
-RELOAD="${RELOAD:-true}"
-export FASTDOC_ENV="${FASTDOC_ENV:-dev}"
+RELOAD="${RELOAD:-false}"
+export FASTDOC_ENV="${FASTDOC_ENV:-prod}"
 
 if ! command -v uv >/dev/null 2>&1; then
   echo "Error: 'uv' is not installed. Install it first: https://docs.astral.sh/uv/"
@@ -17,7 +17,7 @@ fi
 
 if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
   echo "Error: port $PORT is already in use."
-  echo "Use a different port, e.g.: PORT=8001 scripts/start_local_server.sh"
+  echo "Use a different port, e.g.: PORT=8001 scripts/deployment/start_prod_server.sh"
   exit 1
 fi
 

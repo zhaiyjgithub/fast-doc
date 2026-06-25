@@ -19,6 +19,7 @@ wheels/
 
 # Clinical guideline PDFs — large binary files, not tracked in git
 docs/guidelines/
+docs/prod-test-credentials.md
 
 .codegraph
 
