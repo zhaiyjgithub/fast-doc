@@ -9,9 +9,12 @@ Orchestrates:
 from __future__ import annotations
 
 import hashlib
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+from pypdf import PdfReader, PdfWriter
 
 from app.models.rag import KnowledgeDocument
 from app.services.image_enricher import ImageEnricher
@@ -31,6 +34,27 @@ def _file_sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def _split_pdf(path: Path, *, max_pages: int) -> list[tuple[int, int, bytes]]:
+    """Split a PDF into inclusive page ranges with at most ``max_pages`` pages each."""
+    reader = PdfReader(str(path))
+    total_pages = len(reader.pages)
+    if total_pages <= max_pages:
+        return []
+
+    parts: list[tuple[int, int, bytes]] = []
+    for start in range(0, total_pages, max_pages):
+        end = min(start + max_pages, total_pages)
+        writer = PdfWriter()
+        for index in range(start, end):
+            writer.add_page(reader.pages[index])
+
+        with tempfile.SpooledTemporaryFile() as tmp:
+            writer.write(tmp)
+            tmp.seek(0)
+            parts.append((start + 1, end, tmp.read()))
+    return parts
+
+
 @dataclass
 class GuidelinePDFSpec:
     """Metadata for a single guideline PDF to ingest."""
@@ -41,6 +65,8 @@ class GuidelinePDFSpec:
 
 
 class GuidelineIngestionService:
+    _MAX_MINERU_PAGES = 200
+
     def __init__(self, db: "AsyncSession") -> None:
         self.db = db
         self._mineru = MinerUService()
@@ -75,8 +101,7 @@ class GuidelineIngestionService:
         request_id: str | None = None,
     ) -> KnowledgeDocument:
         """Extract a single local PDF via MinerU, enrich images, and ingest into RAG."""
-        results = await self._mineru.extract_local_files([path])
-        raw_markdown = results[0]
+        raw_markdown = await self._extract_pdf_markdown(path)
         enriched = await ImageEnricher(db=self.db, request_id=request_id).enrich(raw_markdown)
         return await self._ingestion.ingest_markdown(
             markdown_text=enriched,
@@ -129,18 +154,12 @@ class GuidelineIngestionService:
         prebuilt_specs = [s for s in filtered_specs if s.markdown_override is not None]
 
         # Single batch MinerU upload for all PDFs that need conversion
-        mineru_markdowns: list[str] = []
-        if mineru_specs:
-            print(f"  Submitting {len(mineru_specs)} PDF(s) to MinerU in one batch…")
-            mineru_markdowns = await self._mineru.extract_local_files(
-                [s.path for s in mineru_specs]
-            )
-
         results: list[KnowledgeDocument] = list(skipped_docs)
 
         # Process MinerU results (store PDF sha256, not markdown sha256)
-        for spec, raw_md in zip(mineru_specs, mineru_markdowns):
+        for spec in mineru_specs:
             print(f"  Enriching + ingesting: {spec.title} …")
+            raw_md = await self._extract_pdf_markdown(spec.path)
             enriched = await ImageEnricher(db=self.db, request_id=request_id).enrich(raw_md)
             doc = await self._ingestion.ingest_markdown(
                 markdown_text=enriched,
@@ -193,3 +212,33 @@ class GuidelineIngestionService:
             version=version,
             request_id=request_id,
         )
+
+    async def _extract_pdf_markdown(self, path: Path) -> str:
+        """Extract markdown from a PDF, splitting locally if MinerU page limits require it."""
+        parts = _split_pdf(path, max_pages=self._MAX_MINERU_PAGES)
+        if not parts:
+            result = await self._mineru.extract_local_files([path])
+            return result[0]
+
+        print(
+            f"  Splitting {path.name} into {len(parts)} parts to satisfy MinerU page limits…"
+        )
+        with tempfile.TemporaryDirectory(prefix="guideline-split-") as temp_dir:
+            temp_root = Path(temp_dir)
+            temp_paths: list[Path] = []
+            for index, (start_page, end_page, pdf_bytes) in enumerate(parts, start=1):
+                part_path = temp_root / f"{path.stem}.part{index:02d}_p{start_page}-{end_page}.pdf"
+                part_path.write_bytes(pdf_bytes)
+                temp_paths.append(part_path)
+
+            markdown_parts = await self._mineru.extract_local_files(temp_paths)
+            merged_parts: list[str] = []
+            for index, ((start_page, end_page, _), markdown_text) in enumerate(
+                zip(parts, markdown_parts),
+                start=1,
+            ):
+                merged_parts.append(
+                    f"\n\n<!-- {path.name} part {index}: pages {start_page}-{end_page} -->\n\n"
+                    f"{markdown_text.strip()}"
+                )
+            return "\n".join(merged_parts).strip()

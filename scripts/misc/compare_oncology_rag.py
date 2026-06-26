@@ -10,9 +10,11 @@ guideline-augmented note is more accurate and actionable.
 
 Usage:
     uv run python -u -m scripts.misc.compare_oncology_rag
+    uv run python -u -m scripts.misc.compare_oncology_rag --scenario nsclc
 """
 from __future__ import annotations
 
+import argparse
 import asyncio
 import textwrap
 import uuid
@@ -205,16 +207,34 @@ async def _generate_note(
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-async def main() -> None:
+def _select_scenarios(selector: str | None) -> list[tuple[int, dict]]:
+    indexed = list(enumerate(SCENARIOS, start=1))
+    if not selector:
+        return indexed
+
+    needle = selector.strip().lower()
+    if needle.isdigit():
+        selected = [(i, s) for i, s in indexed if i == int(needle)]
+    else:
+        selected = [(i, s) for i, s in indexed if needle in s["label"].lower()]
+
+    if not selected:
+        valid = ", ".join(f"{i}: {s['label']}" for i, s in indexed)
+        raise SystemExit(f"No scenario matched '{selector}'. Valid scenarios: {valid}")
+    return selected
+
+
+async def main(scenario: str | None = None) -> None:
     print("=" * 70)
     print("  ONCOLOGY RAG QUALITY COMPARISON")
     print("  WITHOUT guidelines  vs  WITH NCCN guidelines")
     print("=" * 70)
 
+    selected_scenarios = _select_scenarios(scenario)
     async with SessionLocal() as db:
-        for i, scenario in enumerate(SCENARIOS, start=1):
-            label = scenario["label"]
-            transcript = scenario["transcript"]
+        for i, scenario_data in selected_scenarios:
+            label = scenario_data["label"]
+            transcript = scenario_data["transcript"]
 
             _print_section(f"SCENARIO {i}/5 — {label}")
 
@@ -261,4 +281,7 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser(description="Compare oncology EMR generation with/without guideline RAG")
+    parser.add_argument("--scenario", help="Scenario number or label substring, e.g. 2 or nsclc")
+    args = parser.parse_args()
+    asyncio.run(main(scenario=args.scenario))

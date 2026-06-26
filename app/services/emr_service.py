@@ -93,6 +93,11 @@ def build_system_prompt(
     parts.append(
         "The patient transcript may be in any language. "
         "Always respond entirely in English regardless of the input language. "
+        "Treat the encounter transcript and provider-supplied context as the source of truth "
+        "for patient-specific facts, including cancer stage, biomarkers, imaging findings, "
+        "nodal status, and presence or absence of metastasis. "
+        "Use retrieved guidelines only to inform recommendations that are consistent with those facts; "
+        "never upgrade, downgrade, or change staging based on guideline context. "
         'Always return your response as valid JSON with keys: '
         '"subjective", "objective", "assessment", "plan".'
     )
@@ -389,9 +394,11 @@ class EMRService:
         patient_text = "\n\n".join(
             c["chunk_text"] for c in patient_chunks[:5]
         )
-        guideline_text = "\n\n".join(
-            c["chunk_text"] for c in guideline_chunks[:5]
-        )
+        guideline_parts = []
+        for c in guideline_chunks[:5]:
+            title = c.get("document_title") or "Unknown guideline"
+            guideline_parts.append(f"[Source: {title}]\n{c['chunk_text']}")
+        guideline_text = "\n\n".join(guideline_parts)
         parts = []
         if patient_text:
             parts.append(f"### Relevant Patient History\n{patient_text}")
