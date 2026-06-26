@@ -9,17 +9,17 @@ Directory layout:
 
 Usage examples:
     # Ingest all guidelines across all specialties
-    uv run python -m scripts.ingest_guidelines
+    uv run python -m scripts.misc.ingest_guidelines
 
     # Ingest a single specialty
-    uv run python -m scripts.ingest_guidelines --specialty respiratory
-    uv run python -m scripts.ingest_guidelines --specialty oncology
+    uv run python -m scripts.misc.ingest_guidelines --specialty respiratory
+    uv run python -m scripts.misc.ingest_guidelines --specialty oncology
 
     # Ingest a specific PDF file
-    uv run python -m scripts.ingest_guidelines --pdf docs/guidelines/respiratory/GOLD-Report-2025.pdf
+    uv run python -m scripts.misc.ingest_guidelines --pdf docs/guidelines/respiratory/GOLD-Report-2025.pdf
 
     # Ingest pre-converted markdown files from a directory
-    uv run python -m scripts.ingest_guidelines --markdown-dir docs/guidelines/respiratory
+    uv run python -m scripts.misc.ingest_guidelines --markdown-dir docs/guidelines/respiratory
 """
 
 from __future__ import annotations

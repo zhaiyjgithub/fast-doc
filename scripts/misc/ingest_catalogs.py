@@ -2,7 +2,7 @@
 """Ingest ICD-10-CM and CPT catalogs into the database.
 
 Usage:
-    uv run python -m scripts.ingest_catalogs [--icd] [--cpt] [--all]
+    uv run python -m scripts.misc.ingest_catalogs [--icd] [--cpt] [--all]
 
 Run after alembic upgrade head and before seed_fixtures.
 """
@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.core.config import settings
 from app.services.catalog_ingestion import CatalogIngestionService
 
-MEDICAL_CODES_DIR = Path(__file__).parent.parent / "docs" / "medical-codes"
+MEDICAL_CODES_DIR = Path(__file__).parent.parent.parent / "docs" / "medical-codes"
 
 engine = create_async_engine(settings.DATABASE_URL, echo=False)
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
